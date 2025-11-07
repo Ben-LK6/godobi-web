@@ -25,6 +25,12 @@ function Create() {
   const [postTitle, setPostTitle] = useState('');
   const [postDescription, setPostDescription] = useState('');
   const [isPosting, setIsPosting] = useState(false);
+  const [storyElements, setStoryElements] = useState([]);
+  const [selectedMusic, setSelectedMusic] = useState(null);
+  const [taggedFriends, setTaggedFriends] = useState([]);
+  const [showMobilePanel, setShowMobilePanel] = useState(false);
+  const [activeToolPanel, setActiveToolPanel] = useState(null);
+  const [showConfigOverlay, setShowConfigOverlay] = useState(false);
   
   const fileInputRef = useRef(null);
   const videoRef = useRef(null);
@@ -126,6 +132,48 @@ function Create() {
   // Ouvrir la modal de publication
   const handlePost = () => {
     setShowPostModal(true);
+  };
+
+  // Ajouter du texte sur la story
+  const handleAddStoryText = () => {
+    const text = prompt('Entrez votre texte:');
+    if (text) {
+      const newElement = {
+        id: Date.now(),
+        type: 'text',
+        content: text,
+        x: 50,
+        y: 30 + (storyElements.length * 10),
+        color: '#ffffff',
+        size: 20
+      };
+      setStoryElements([...storyElements, newElement]);
+    }
+  };
+
+  // Ajouter un sticker
+  const handleAddSticker = (sticker) => {
+    const newElement = {
+      id: Date.now(),
+      type: 'sticker',
+      content: sticker,
+      x: 50,
+      y: 30 + (storyElements.length * 10),
+      size: 30
+    };
+    setStoryElements([...storyElements, newElement]);
+  };
+
+  // Ajouter de la musique
+  const handleAddMusic = () => {
+    // TODO: Implémenter sélecteur de musique
+    alert('🎵 Sélecteur de musique bientôt disponible !');
+  };
+
+  // Taguer des amis
+  const handleTagFriends = () => {
+    // TODO: Implémenter sélecteur d'amis
+    alert('👥 Sélecteur d\'amis bientôt disponible !');
   };
 
   // Publier le contenu
@@ -822,179 +870,534 @@ function Create() {
         onClose={handleCloseCamera}
       />
 
-      {/* Modal de Publication */}
+      {/* Interface de Publication Avancée */}
       {showPostModal && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-          {/* Overlay */}
-          <div 
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            onClick={() => setShowPostModal(false)}
-          ></div>
-          
-          {/* Modal */}
-          <div className="relative w-full sm:w-96 bg-white rounded-t-3xl sm:rounded-3xl p-6 max-h-[90vh] overflow-y-auto">
-            {/* Header */}
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-gray-800">Publier</h2>
+        <div className="fixed inset-0 z-50 bg-black">
+          {/* Header */}
+          <div className="absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-black/80 to-transparent p-3 sm:p-4 pt-10 sm:pt-12">
+            <div className="flex items-center justify-between">
               <button
                 onClick={() => setShowPostModal(false)}
-                className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200 transition-colors"
+                className="w-8 h-8 sm:w-10 sm:h-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-white/30 transition-all"
               >
-                <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 sm:w-5 sm:h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
+              
+              <span className="text-white font-semibold text-sm sm:text-base">Partager</span>
+              
+              <button
+                onClick={handlePublish}
+                disabled={!postTitle.trim() || isPosting}
+                className={`px-4 py-2 rounded-full font-semibold text-sm transition-all ${
+                  postTitle.trim() && !isPosting
+                    ? 'bg-white text-black hover:bg-gray-200'
+                    : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                }`}
+              >
+                {isPosting ? 'Publication...' : postTitle.trim() ? 'Partager' : 'Config requis'}
+              </button>
             </div>
+          </div>
 
-            {/* Aperçu de l'image */}
-            <div className="mb-6">
-              <div className="relative w-full h-48 bg-gray-100 rounded-2xl overflow-hidden">
+          {/* Contenu Principal */}
+          <div className="w-full h-full flex flex-col">
+            {/* Zone Image - Plein écran sur mobile */}
+            <div className="flex-1 relative flex items-center justify-center p-4 pt-20 pb-20 sm:pb-4">
+              <div className="relative w-full max-w-sm aspect-[9/16] bg-gray-900 rounded-2xl overflow-hidden shadow-2xl">
                 <img 
                   src={previewUrl} 
                   alt="Aperçu" 
                   className="w-full h-full object-cover"
                 />
-              </div>
-            </div>
-
-            {/* Type de publication */}
-            <div className="mb-6">
-              <p className="text-sm font-medium text-gray-700 mb-3">Où publier ?</p>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={() => setPostType('story')}
-                  className={`p-4 rounded-xl border-2 transition-all ${
-                    postType === 'story'
-                      ? 'border-purple-500 bg-purple-50'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  <div className="text-center">
-                    <div className="text-2xl mb-2">📖</div>
-                    <p className="font-medium text-gray-800">Story</p>
-                    <p className="text-xs text-gray-500">24h</p>
-                  </div>
-                </button>
                 
-                <button
-                  onClick={() => setPostType('profile')}
-                  className={`p-4 rounded-xl border-2 transition-all ${
-                    postType === 'profile'
-                      ? 'border-blue-500 bg-blue-50'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  <div className="text-center">
-                    <div className="text-2xl mb-2">👤</div>
-                    <p className="font-medium text-gray-800">Profil</p>
-                    <p className="text-xs text-gray-500">Permanent</p>
-                  </div>
-                </button>
-              </div>
-            </div>
-
-            {/* Options de confidentialité (seulement pour profil) */}
-            {postType === 'profile' && (
-              <div className="mb-6">
-                <p className="text-sm font-medium text-gray-700 mb-3">Confidentialité</p>
-                <div className="grid grid-cols-2 gap-3">
+                {/* Sélecteur Type - En haut au centre */}
+                <div className="absolute top-4 left-1/2 transform -translate-x-1/2">
                   <button
-                    onClick={() => setIsPrivate(false)}
-                    className={`p-3 rounded-lg border-2 transition-all ${
-                      !isPrivate
-                        ? 'border-green-500 bg-green-50'
-                        : 'border-gray-200 hover:border-gray-300'
+                    onClick={() => setActiveToolPanel(activeToolPanel === 'type' ? null : 'type')}
+                    className={`px-4 py-2 backdrop-blur-md rounded-full flex items-center gap-2 transition-all border-2 ${
+                      postType === 'story' 
+                        ? 'bg-purple-500/80 border-purple-400 text-white shadow-lg shadow-purple-500/25' 
+                        : 'bg-blue-500/80 border-blue-400 text-white shadow-lg shadow-blue-500/25'
                     }`}
                   >
-                    <div className="flex items-center gap-2">
-                      <div className="text-lg">🌍</div>
-                      <div className="text-left">
-                        <p className="font-medium text-gray-800 text-sm">Public</p>
-                        <p className="text-xs text-gray-500">Visible par tous</p>
+                    <span className="text-lg">{postType === 'story' ? '📖' : '👤'}</span>
+                    <span className="text-sm font-semibold">{postType === 'story' ? 'Story' : 'Profil'}</span>
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                </div>
+
+                {/* Outils Desktop seulement */}
+                <div className="absolute top-4 right-4 hidden sm:flex flex-col gap-2">
+                  {postType === 'story' && (
+                    <button 
+                      onClick={handleAddStoryText}
+                      className="w-8 h-8 bg-black/60 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-black/80 transition-all border border-white/20"
+                    >
+                      <span className="text-white text-sm font-bold">Aa</span>
+                    </button>
+                  )}
+                  
+                  {postType === 'story' && (
+                    <button 
+                      onClick={() => setActiveToolPanel(activeToolPanel === 'stickers' ? null : 'stickers')}
+                      className="w-8 h-8 bg-black/60 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-black/80 transition-all border border-white/20"
+                    >
+                      <span className="text-white text-sm">😀</span>
+                    </button>
+                  )}
+                  
+                  <button 
+                    onClick={handleAddMusic}
+                    className="w-8 h-8 bg-black/60 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-black/80 transition-all border border-white/20"
+                  >
+                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                    </svg>
+                  </button>
+                  
+                  <button 
+                    onClick={handleTagFriends}
+                    className="w-8 h-8 bg-black/60 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-black/80 transition-all border border-white/20"
+                  >
+                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                  </button>
+                </div>
+
+                {/* Panneaux flottants */}
+                {/* Stickers */}
+                {activeToolPanel === 'stickers' && (
+                  <div className="absolute top-4 right-16 sm:right-20 bg-black/80 backdrop-blur-md rounded-lg p-3 border border-white/20">
+                    <div className="grid grid-cols-3 gap-2">
+                      {['😀', '😍', '🔥', '💯', '✨', '❤️', '👍', '🎉'].map((sticker, i) => (
+                        <button
+                          key={i}
+                          onClick={() => {
+                            handleAddSticker(sticker);
+                            setActiveToolPanel(null);
+                          }}
+                          className="w-8 h-8 hover:scale-110 transition-transform rounded-lg hover:bg-white/10"
+                        >
+                          {sticker}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Type de publication */}
+                {activeToolPanel === 'type' && (
+                  <div className="absolute top-16 left-1/2 transform -translate-x-1/2 bg-black/80 backdrop-blur-md rounded-lg p-2 border border-white/20">
+                    <div className="space-y-1">
+                      <button
+                        onClick={() => {
+                          setPostType('story');
+                          setActiveToolPanel(null);
+                        }}
+                        className={`w-full px-3 py-2 rounded-lg text-xs transition-all flex items-center gap-2 ${
+                          postType === 'story'
+                            ? 'bg-purple-500/30 text-purple-300'
+                            : 'text-gray-400 hover:bg-purple-500/20'
+                        }`}
+                      >
+                        <span>📖</span>
+                        <span>Story</span>
+                      </button>
+                      
+                      <button
+                        onClick={() => {
+                          setPostType('profile');
+                          setActiveToolPanel(null);
+                        }}
+                        className={`w-full px-3 py-2 rounded-lg text-xs transition-all flex items-center gap-2 ${
+                          postType === 'profile'
+                            ? 'bg-blue-500/30 text-blue-300'
+                            : 'text-gray-400 hover:bg-blue-500/20'
+                        }`}
+                      >
+                        <span>👤</span>
+                        <span>Profil</span>
+                      </button>
+                      
+                      {postType === 'profile' && (
+                        <>
+                          <div className="w-full h-px bg-gray-600 my-1"></div>
+                          <button
+                            onClick={() => setIsPrivate(!isPrivate)}
+                            className={`w-full px-3 py-2 rounded-lg text-xs transition-all flex items-center gap-2 ${
+                              !isPrivate
+                                ? 'bg-green-500/30 text-green-300'
+                                : 'bg-orange-500/30 text-orange-300'
+                            }`}
+                          >
+                            <span>{isPrivate ? '🔒' : '🌍'}</span>
+                            <span>{isPrivate ? 'Privé' : 'Public'}</span>
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Titre */}
+                {activeToolPanel === 'title' && (
+                  <div className="absolute top-4 right-16 sm:right-20 bg-black/80 backdrop-blur-md rounded-lg p-3 border border-white/20 w-64">
+                    <input
+                      type="text"
+                      value={postTitle}
+                      onChange={(e) => setPostTitle(e.target.value)}
+                      placeholder="Titre de votre création..."
+                      className="w-full px-3 py-2 bg-gray-800/80 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-blue-400 text-sm"
+                      maxLength={100}
+                      autoFocus
+                    />
+                    <p className="text-xs text-gray-400 mt-1">{postTitle.length}/100</p>
+                    <button
+                      onClick={() => setActiveToolPanel(null)}
+                      className="w-full mt-2 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded text-xs"
+                    >
+                      OK
+                    </button>
+                  </div>
+                )}
+
+                {/* Description */}
+                {activeToolPanel === 'desc' && (
+                  <div className="absolute top-4 right-16 sm:right-20 bg-black/80 backdrop-blur-md rounded-lg p-3 border border-white/20 w-64">
+                    <textarea
+                      value={postDescription}
+                      onChange={(e) => setPostDescription(e.target.value)}
+                      placeholder="Décrivez votre création..."
+                      className="w-full px-3 py-2 bg-gray-800/80 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-blue-400 text-sm resize-none"
+                      rows="3"
+                      maxLength={500}
+                      autoFocus
+                    />
+                    <p className="text-xs text-gray-400 mt-1">{postDescription.length}/500</p>
+                    <button
+                      onClick={() => setActiveToolPanel(null)}
+                      className="w-full mt-2 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded text-xs"
+                    >
+                      OK
+                    </button>
+                  </div>
+                )}
+
+                {/* Boutons d'Action Mobile - Alignés sous les outils */}
+                <div className="absolute top-4 right-4 sm:hidden">
+                  <div className="flex flex-col gap-2">
+                    {/* Outils existants */}
+                    {postType === 'story' && (
+                      <button 
+                        onClick={handleAddStoryText}
+                        className="w-7 h-7 bg-black/60 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-black/80 transition-all border border-white/20"
+                      >
+                        <span className="text-white text-xs font-bold">Aa</span>
+                      </button>
+                    )}
+                    
+                    {postType === 'story' && (
+                      <button 
+                        onClick={() => setActiveToolPanel(activeToolPanel === 'stickers' ? null : 'stickers')}
+                        className="w-7 h-7 bg-black/60 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-black/80 transition-all border border-white/20"
+                      >
+                        <span className="text-white text-xs">😀</span>
+                      </button>
+                    )}
+                    
+                    <button 
+                      onClick={handleAddMusic}
+                      className="w-7 h-7 bg-black/60 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-black/80 transition-all border border-white/20"
+                    >
+                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                      </svg>
+                    </button>
+                    
+                    <button 
+                      onClick={handleTagFriends}
+                      className="w-7 h-7 bg-black/60 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-black/80 transition-all border border-white/20"
+                    >
+                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                    </button>
+
+                    {/* Séparateur */}
+                    <div className="w-7 h-px bg-white/30 my-1"></div>
+
+                    {/* Boutons de Configuration */}
+
+
+                    {/* Titre */}
+                    <button
+                      onClick={() => setActiveToolPanel(activeToolPanel === 'title' ? null : 'title')}
+                      className={`w-7 h-7 backdrop-blur-md rounded-full flex items-center justify-center transition-all border ${
+                        postTitle.trim() 
+                          ? 'bg-green-500/80 border-green-400 text-white' 
+                          : 'bg-red-500/80 border-red-400 text-white'
+                      }`}
+                    >
+                      <span className="text-xs font-bold">T</span>
+                    </button>
+
+                    {/* Description */}
+                    <button
+                      onClick={() => setActiveToolPanel(activeToolPanel === 'desc' ? null : 'desc')}
+                      className={`w-7 h-7 backdrop-blur-md rounded-full flex items-center justify-center transition-all border ${
+                        postDescription.trim() 
+                          ? 'bg-green-500/80 border-green-400 text-white' 
+                          : 'bg-gray-500/80 border-gray-400 text-white'
+                      }`}
+                    >
+                      <span className="text-xs">D</span>
+                    </button>
+
+
+                  </div>
+                </div>
+
+
+
+                {/* Éléments ajoutés sur la story */}
+                {storyElements.map((element) => (
+                  <div
+                    key={element.id}
+                    style={{
+                      position: 'absolute',
+                      left: `${element.x}%`,
+                      top: `${element.y}%`,
+                      transform: 'translate(-50%, -50%)',
+                      color: element.color,
+                      fontSize: `${element.size}px`,
+                      cursor: 'move',
+                      textShadow: '2px 2px 4px rgba(0,0,0,0.8)'
+                    }}
+                    className="select-none group"
+                  >
+                    {element.content}
+                    
+                    {/* Bouton supprimer */}
+                    <button
+                      onClick={() => setStoryElements(storyElements.filter(el => el.id !== element.id))}
+                      className="absolute -top-2 -right-2 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <svg className="w-2 h-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+
+                {/* Informations en bas */}
+                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3 sm:p-4">
+                  <div className="text-white">
+                    <p className="font-semibold text-xs sm:text-sm mb-1 truncate">{postTitle || 'Titre...'}</p>
+                    <p className="text-[10px] sm:text-xs text-white/80 line-clamp-2">{postDescription || 'Description...'}</p>
+                    
+                    {/* Indicateurs et Bouton Partager */}
+                    <div className="flex items-center justify-between mt-2">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full ${
+                          postType === 'story' ? 'bg-purple-500/30 text-purple-300' : 'bg-blue-500/30 text-blue-300'
+                        }`}>
+                          {postType === 'story' ? '📖 Story' : '👤 Profil'}
+                        </span>
+                        
+                        {postType === 'profile' && (
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full ${
+                            isPrivate ? 'bg-orange-500/30 text-orange-300' : 'bg-green-500/30 text-green-300'
+                          }`}>
+                            {isPrivate ? '🔒 Privé' : '🌍 Public'}
+                          </span>
+                        )}
+                        
+                        {storyElements.length > 0 && (
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-yellow-500/30 text-yellow-300">
+                            ✨ {storyElements.length}
+                          </span>
+                        )}
                       </div>
+
+                      {/* Bouton Partager Mobile */}
+                      <div className="sm:hidden">
+                        <button
+                          onClick={handlePublish}
+                          disabled={!postTitle.trim() || isPosting}
+                          className={`px-4 py-2 rounded-full text-xs font-semibold transition-all ${
+                            postTitle.trim() && !isPosting
+                              ? 'bg-white text-black hover:bg-gray-200'
+                              : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                          }`}
+                        >
+                          {isPosting ? (
+                            <div className="flex items-center gap-1">
+                              <div className="w-3 h-3 border border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                              <span>Publication...</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1">
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                              </svg>
+                              <span>Partager</span>
+                            </div>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Panneau de Configuration Desktop */}
+            <div className="hidden sm:block w-80 bg-gray-900 p-6 overflow-y-auto absolute right-0 top-0 bottom-0">
+              {/* Type de publication */}
+              <div className="mb-6">
+                <p className="text-white font-medium mb-3">Type de publication</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => setPostType('story')}
+                    className={`p-3 rounded-xl border transition-all ${
+                      postType === 'story'
+                        ? 'border-purple-500 bg-purple-500/20 text-purple-300'
+                        : 'border-gray-600 text-gray-400 hover:border-gray-500'
+                    }`}
+                  >
+                    <div className="text-center">
+                      <div className="text-lg mb-1">📖</div>
+                      <p className="text-xs font-medium">Story</p>
+                      <p className="text-[10px] opacity-70">24h</p>
                     </div>
                   </button>
                   
                   <button
-                    onClick={() => setIsPrivate(true)}
-                    className={`p-3 rounded-lg border-2 transition-all ${
-                      isPrivate
-                        ? 'border-orange-500 bg-orange-50'
-                        : 'border-gray-200 hover:border-gray-300'
+                    onClick={() => setPostType('profile')}
+                    className={`p-3 rounded-xl border transition-all ${
+                      postType === 'profile'
+                        ? 'border-blue-500 bg-blue-500/20 text-blue-300'
+                        : 'border-gray-600 text-gray-400 hover:border-gray-500'
                     }`}
                   >
-                    <div className="flex items-center gap-2">
-                      <div className="text-lg">🔒</div>
-                      <div className="text-left">
-                        <p className="font-medium text-gray-800 text-sm">Privé</p>
-                        <p className="text-xs text-gray-500">Amis seulement</p>
-                      </div>
+                    <div className="text-center">
+                      <div className="text-lg mb-1">👤</div>
+                      <p className="text-xs font-medium">Profil</p>
+                      <p className="text-[10px] opacity-70">Permanent</p>
                     </div>
                   </button>
                 </div>
               </div>
-            )}
 
-            {/* Titre */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Titre *
-              </label>
-              <input
-                type="text"
-                value={postTitle}
-                onChange={(e) => setPostTitle(e.target.value)}
-                placeholder="Donnez un titre à votre création..."
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:border-blue-500 transition-colors"
-                maxLength={100}
-              />
-              <p className="text-xs text-gray-500 mt-1">{postTitle.length}/100</p>
-            </div>
-
-            {/* Description */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Description
-              </label>
-              <textarea
-                value={postDescription}
-                onChange={(e) => setPostDescription(e.target.value)}
-                placeholder="Décrivez votre création (optionnel)..."
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:border-blue-500 transition-colors resize-none"
-                rows="3"
-                maxLength={500}
-              />
-              <p className="text-xs text-gray-500 mt-1">{postDescription.length}/500</p>
-            </div>
-
-            {/* Boutons d'action */}
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowPostModal(false)}
-                className="flex-1 py-3 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-colors"
-              >
-                Annuler
-              </button>
-              
-              <button
-                onClick={handlePublish}
-                disabled={!postTitle.trim() || isPosting}
-                className={`flex-1 py-3 px-4 rounded-xl font-medium transition-all ${
-                  postTitle.trim() && !isPosting
-                    ? 'bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white shadow-lg'
-                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                }`}
-              >
-                {isPosting ? (
-                  <div className="flex items-center justify-center gap-2">
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                    <span>Publication...</span>
+              {/* Confidentialité (seulement pour profil) */}
+              {postType === 'profile' && (
+                <div className="mb-6">
+                  <p className="text-white font-medium mb-3">Confidentialité</p>
+                  <div className="space-y-2">
+                    <button
+                      onClick={() => setIsPrivate(false)}
+                      className={`w-full p-3 rounded-lg border transition-all flex items-center gap-3 ${
+                        !isPrivate
+                          ? 'border-green-500 bg-green-500/20 text-green-300'
+                          : 'border-gray-600 text-gray-400 hover:border-gray-500'
+                      }`}
+                    >
+                      <span className="text-lg">🌍</span>
+                      <div className="text-left">
+                        <p className="text-sm font-medium">Public</p>
+                        <p className="text-xs opacity-70">Visible par tous</p>
+                      </div>
+                    </button>
+                    
+                    <button
+                      onClick={() => setIsPrivate(true)}
+                      className={`w-full p-3 rounded-lg border transition-all flex items-center gap-3 ${
+                        isPrivate
+                          ? 'border-orange-500 bg-orange-500/20 text-orange-300'
+                          : 'border-gray-600 text-gray-400 hover:border-gray-500'
+                      }`}
+                    >
+                      <span className="text-lg">🔒</span>
+                      <div className="text-left">
+                        <p className="text-sm font-medium">Privé</p>
+                        <p className="text-xs opacity-70">Amis seulement</p>
+                      </div>
+                    </button>
                   </div>
-                ) : (
-                  `Publier ${postType === 'story' ? 'Story' : 'sur Profil'}`
+                </div>
+              )}
+
+              {/* Titre */}
+              <div className="mb-4">
+                <label className="block text-white font-medium mb-2 text-sm">
+                  Titre *
+                </label>
+                <input
+                  type="text"
+                  value={postTitle}
+                  onChange={(e) => setPostTitle(e.target.value)}
+                  placeholder="Titre de votre création..."
+                  className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 transition-colors text-sm"
+                  maxLength={100}
+                />
+                <p className="text-xs text-gray-400 mt-1">{postTitle.length}/100</p>
+              </div>
+
+              {/* Description */}
+              <div className="mb-6">
+                <label className="block text-white font-medium mb-2 text-sm">
+                  Description
+                </label>
+                <textarea
+                  value={postDescription}
+                  onChange={(e) => setPostDescription(e.target.value)}
+                  placeholder="Décrivez votre création..."
+                  className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 transition-colors resize-none text-sm"
+                  rows="3"
+                  maxLength={500}
+                />
+                <p className="text-xs text-gray-400 mt-1">{postDescription.length}/500</p>
+              </div>
+
+              {/* Options Avancées */}
+              <div className="space-y-3">
+                <button 
+                  onClick={handleAddMusic}
+                  className="w-full p-3 bg-gray-800 hover:bg-gray-700 rounded-lg text-white text-sm font-medium transition-all flex items-center gap-3 active:scale-95"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                  </svg>
+                  {selectedMusic ? `🎵 ${selectedMusic}` : 'Ajouter une musique'}
+                </button>
+                
+                <button 
+                  onClick={handleTagFriends}
+                  className="w-full p-3 bg-gray-800 hover:bg-gray-700 rounded-lg text-white text-sm font-medium transition-all flex items-center gap-3 active:scale-95"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                  {taggedFriends.length > 0 ? `👥 ${taggedFriends.length} ami(s) taggé(s)` : 'Taguer des amis'}
+                </button>
+                
+                {/* Indicateur d'éléments ajoutés */}
+                {storyElements.length > 0 && (
+                  <div className="p-3 bg-blue-500/20 border border-blue-500/30 rounded-lg">
+                    <p className="text-blue-300 text-sm font-medium">
+                      ✨ {storyElements.length} élément(s) ajouté(s) sur votre story
+                    </p>
+                  </div>
                 )}
-              </button>
+              </div>
             </div>
+
+
           </div>
         </div>
       )}

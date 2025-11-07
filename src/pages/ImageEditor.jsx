@@ -9,6 +9,7 @@ function ImageEditor() {
   const [imageUrl, setImageUrl] = useState(null);
   const [activeTab, setActiveTab] = useState('text');
   const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
 
   // États pour les outils
   const [textElements, setTextElements] = useState([]);
@@ -82,10 +83,87 @@ function ImageEditor() {
     setSelectedElement(null);
   };
 
-  const handleSave = () => {
-    // TODO: Sauvegarder l'image éditée
-    alert('✅ Modifications sauvegardées !');
-    navigate('/temp-gallery');
+  const handleSave = async () => {
+    if (isSaving) return;
+    
+    try {
+      setIsSaving(true);
+      
+      // Créer un canvas pour capturer l'image avec les modifications
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const img = canvasRef.current;
+      
+      // Vérifier que l'image est chargée
+      if (!img || !img.complete) {
+        throw new Error('Image non chargée');
+      }
+      
+      // Définir la taille du canvas
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      
+      // Créer une nouvelle image pour éviter les problèmes CORS
+      const sourceImg = new Image();
+      sourceImg.crossOrigin = 'anonymous';
+      
+      await new Promise((resolve, reject) => {
+        sourceImg.onload = resolve;
+        sourceImg.onerror = reject;
+        sourceImg.src = imageUrl;
+      });
+      
+      // Appliquer les filtres
+      ctx.filter = `brightness(${filters.brightness}%) contrast(${filters.contrast}%) saturate(${filters.saturation}%) blur(${filters.blur}px)`;
+      
+      // Dessiner l'image de base
+      ctx.drawImage(sourceImg, 0, 0, canvas.width, canvas.height);
+      
+      // Réinitialiser le filtre pour les éléments
+      ctx.filter = 'none';
+      
+      // Ajouter les éléments de texte et stickers
+      textElements.forEach(element => {
+        const x = (element.x / 100) * canvas.width;
+        const y = (element.y / 100) * canvas.height;
+        
+        if (element.type === 'text') {
+          ctx.fillStyle = element.color;
+          ctx.font = `${element.size}px Arial`;
+          ctx.textAlign = 'center';
+          ctx.fillText(element.text, x, y);
+        } else if (element.type === 'sticker') {
+          ctx.font = `${element.size}px Arial`;
+          ctx.textAlign = 'center';
+          ctx.fillText(element.text, x, y);
+        }
+      });
+      
+      // Convertir en base64
+      const editedImageUrl = canvas.toDataURL('image/jpeg', 0.9);
+      
+      // Sauvegarder dans la galerie temporaire
+      const savedImages = JSON.parse(localStorage.getItem('godobi_temp_gallery') || '[]');
+      const newImage = {
+        id: Date.now(),
+        url: editedImageUrl,
+        type: 'edited',
+        title: 'Image éditée',
+        createdAt: new Date().toISOString()
+      };
+      
+      const updatedImages = [newImage, ...savedImages];
+      localStorage.setItem('godobi_temp_gallery', JSON.stringify(updatedImages));
+      
+      alert('✅ Image éditée sauvegardée !');
+      navigate('/temp-gallery');
+      
+    } catch (error) {
+      console.error('Erreur sauvegarde:', error);
+      alert('❌ Erreur lors de la sauvegarde');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   if (isLoading) {
@@ -114,9 +192,14 @@ function ImageEditor() {
           
           <button
             onClick={handleSave}
-            className="bg-green-500 hover:bg-green-600 text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-full font-semibold text-xs sm:text-sm transition-all"
+            disabled={isSaving}
+            className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-full font-semibold text-xs sm:text-sm transition-all ${
+              isSaving 
+                ? 'bg-gray-500 text-white cursor-not-allowed'
+                : 'bg-green-500 hover:bg-green-600 text-white'
+            }`}
           >
-            ✓ Sauver
+            {isSaving ? 'Sauvegarde...' : '✓ Sauver'}
           </button>
         </div>
       </div>
