@@ -2,6 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import authService from '../services/authService';
+import imageService from '../services/imageService';
 import CameraCapture from '../components/CameraCapture';
 
 function Create() {
@@ -17,6 +18,7 @@ function Create() {
   const [savedImages, setSavedImages] = useState([]);
   const [showGallery, setShowGallery] = useState(false);
   const [isEnhancing, setIsEnhancing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   
   const fileInputRef = useRef(null);
   const videoRef = useRef(null);
@@ -39,6 +41,12 @@ function Create() {
       return;
     }
     setUser(authService.getCurrentUser());
+    
+    // Charger les images sauvegardées
+    const saved = localStorage.getItem('godobi_temp_gallery');
+    if (saved) {
+      setSavedImages(JSON.parse(saved));
+    }
   }, [navigate]);
 
   // Générer depuis prompt
@@ -67,17 +75,37 @@ function Create() {
     }, 2000);
   };
 
-  // Sauvegarder dans galerie
+  // Sauvegarder dans galerie temporaire
   const handleSaveToGallery = (type, additionalData = {}) => {
-    const newImage = {
-      id: Date.now(),
-      url: previewUrl,
-      type: type,
-      createdAt: new Date().toISOString(),
-      ...additionalData
-    };
-    setSavedImages(prev => [newImage, ...prev]);
-    alert('✅ Sauvegardé dans la galerie !');
+    setIsSaving(true);
+    
+    setTimeout(() => {
+      try {
+        // Créer l'objet image
+        const newImage = {
+          id: Date.now(),
+          url: previewUrl,
+          type: type,
+          createdAt: new Date().toISOString(),
+          ...additionalData
+        };
+
+        // Ajouter à la galerie locale
+        setSavedImages(prev => {
+          const updated = [newImage, ...prev];
+          // Sauvegarder dans localStorage
+          localStorage.setItem('godobi_temp_gallery', JSON.stringify(updated));
+          return updated;
+        });
+        
+        alert('✅ Sauvegardé dans la galerie temporaire !');
+      } catch (error) {
+        console.error('Erreur sauvegarde:', error);
+        alert('❌ Erreur lors de la sauvegarde');
+      } finally {
+        setIsSaving(false);
+      }
+    }, 500); // Simule un délai
   };
 
   // Poster directement
@@ -139,7 +167,13 @@ function Create() {
             
             <div className="relative">
               <button
-                onClick={() => setShowGallery(!showGallery)}
+                onClick={() => {
+                  if (savedImages.length > 0) {
+                    navigate('/temp-gallery');
+                  } else {
+                    setShowGallery(!showGallery);
+                  }
+                }}
                 className="relative w-8 h-8 sm:w-10 sm:h-10 bg-white/10 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-white/20 transition-all overflow-hidden"
               >
                 {savedImages.length > 0 ? (
@@ -155,9 +189,11 @@ function Create() {
                     </div>
                   </>
                 ) : (
-                  <svg className="w-4 h-4 sm:w-5 sm:h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
+                  <div className="w-full h-full bg-gradient-to-br from-purple-500/20 to-blue-500/20 rounded-full flex items-center justify-center border-2 border-white/30">
+                    <svg className="w-4 h-4 sm:w-5 sm:h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                    </svg>
+                  </div>
                 )}
               </button>
 
@@ -192,7 +228,7 @@ function Create() {
                     {savedImages.length > 6 && (
                       <button
                         onClick={() => {
-                          navigate('/gallery');
+                          navigate('/temp-gallery');
                           setShowGallery(false);
                         }}
                         className="w-full mt-2 text-white/60 text-xs hover:text-white transition-colors"
@@ -369,25 +405,43 @@ function Create() {
           <div className="w-full h-full relative">
             <img src={previewUrl} alt="Généré par IA" className="w-full h-full object-contain bg-black" />
             
-            <div className="absolute bottom-4 sm:bottom-6 left-3 sm:left-4 right-3 sm:right-4 space-y-2 sm:space-y-3">
-              <div className="grid grid-cols-3 gap-2">
+            <div className="absolute bottom-6 sm:bottom-8 left-0 right-0 flex justify-center">
+              <div className="flex items-center gap-4 sm:gap-6">
+                {/* Enregistrer */}
                 <button
                   onClick={() => handleSaveToGallery('ai', { prompt, style: selectedStyle })}
-                  className="bg-blue-500 hover:bg-blue-600 text-white py-2 sm:py-3 rounded-lg sm:rounded-xl font-medium text-xs sm:text-sm transition-all active:scale-95"
+                  disabled={isSaving}
+                  className={`w-12 h-12 sm:w-14 sm:h-14 bg-blue-500/90 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-blue-500 transition-all active:scale-95 shadow-lg ${
+                    isSaving ? 'opacity-50 cursor-not-allowed' : ''
+                  }`}
                 >
-                  💾 Enregistrer
+                  {isSaving ? (
+                    <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  ) : (
+                    <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                    </svg>
+                  )}
                 </button>
+
+                {/* Éditer */}
                 <button
                   onClick={() => navigate('/editor', { state: { imageUrl: previewUrl } })}
-                  className="bg-purple-500 hover:bg-purple-600 text-white py-2 sm:py-3 rounded-lg sm:rounded-xl font-medium text-xs sm:text-sm transition-all active:scale-95"
+                  className="w-12 h-12 sm:w-14 sm:h-14 bg-purple-500/90 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-purple-500 transition-all active:scale-95 shadow-lg"
                 >
-                  ✏️ Éditer
+                  <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
                 </button>
+
+                {/* Poster */}
                 <button
                   onClick={handlePost}
-                  className="bg-green-500 hover:bg-green-600 text-white py-2 sm:py-3 rounded-lg sm:rounded-xl font-medium text-xs sm:text-sm transition-all active:scale-95"
+                  className="w-12 h-12 sm:w-14 sm:h-14 bg-green-500/90 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-green-500 transition-all active:scale-95 shadow-lg"
                 >
-                  🚀 Poster
+                  <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                  </svg>
                 </button>
               </div>
             </div>
@@ -405,11 +459,18 @@ function Create() {
                 {/* Enregistrer */}
                 <button
                   onClick={() => handleSaveToGallery('camera')}
-                  className="w-12 h-12 sm:w-14 sm:h-14 bg-blue-500/90 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-blue-500 transition-all active:scale-95 shadow-lg"
+                  disabled={isSaving}
+                  className={`w-12 h-12 sm:w-14 sm:h-14 bg-blue-500/90 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-blue-500 transition-all active:scale-95 shadow-lg ${
+                    isSaving ? 'opacity-50 cursor-not-allowed' : ''
+                  }`}
                 >
-                  <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
-                  </svg>
+                  {isSaving ? (
+                    <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  ) : (
+                    <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                    </svg>
+                  )}
                 </button>
 
                 {/* Éditer */}
@@ -460,11 +521,18 @@ function Create() {
                 {/* Enregistrer */}
                 <button
                   onClick={() => handleSaveToGallery('upload')}
-                  className="w-12 h-12 sm:w-14 sm:h-14 bg-blue-500/90 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-blue-500 transition-all active:scale-95 shadow-lg"
+                  disabled={isSaving}
+                  className={`w-12 h-12 sm:w-14 sm:h-14 bg-blue-500/90 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-blue-500 transition-all active:scale-95 shadow-lg ${
+                    isSaving ? 'opacity-50 cursor-not-allowed' : ''
+                  }`}
                 >
-                  <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
-                  </svg>
+                  {isSaving ? (
+                    <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  ) : (
+                    <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                    </svg>
+                  )}
                 </button>
 
                 {/* Éditer */}
@@ -509,25 +577,43 @@ function Create() {
           <div className="w-full h-full relative">
             <img src={previewUrl} alt="Amélioré par IA" className="w-full h-full object-contain bg-black" />
             
-            <div className="absolute bottom-4 sm:bottom-6 left-3 sm:left-4 right-3 sm:right-4 space-y-2 sm:space-y-3">
-              <div className="grid grid-cols-3 gap-2">
+            <div className="absolute bottom-6 sm:bottom-8 left-0 right-0 flex justify-center">
+              <div className="flex items-center gap-4 sm:gap-6">
+                {/* Enregistrer */}
                 <button
                   onClick={() => handleSaveToGallery(selectedImage ? 'camera_enhanced' : 'upload_enhanced')}
-                  className="bg-blue-500 hover:bg-blue-600 text-white py-2 sm:py-3 rounded-lg sm:rounded-xl font-medium text-xs sm:text-sm transition-all active:scale-95"
+                  disabled={isSaving}
+                  className={`w-12 h-12 sm:w-14 sm:h-14 bg-blue-500/90 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-blue-500 transition-all active:scale-95 shadow-lg ${
+                    isSaving ? 'opacity-50 cursor-not-allowed' : ''
+                  }`}
                 >
-                  💾 Enregistrer
+                  {isSaving ? (
+                    <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  ) : (
+                    <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                    </svg>
+                  )}
                 </button>
+
+                {/* Éditer */}
                 <button
                   onClick={() => navigate('/editor', { state: { imageUrl: previewUrl } })}
-                  className="bg-purple-500 hover:bg-purple-600 text-white py-2 sm:py-3 rounded-lg sm:rounded-xl font-medium text-xs sm:text-sm transition-all active:scale-95"
+                  className="w-12 h-12 sm:w-14 sm:h-14 bg-purple-500/90 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-purple-500 transition-all active:scale-95 shadow-lg"
                 >
-                  ✏️ Éditer
+                  <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
                 </button>
+
+                {/* Poster */}
                 <button
                   onClick={handlePost}
-                  className="bg-green-500 hover:bg-green-600 text-white py-2 sm:py-3 rounded-lg sm:rounded-xl font-medium text-xs sm:text-sm transition-all active:scale-95"
+                  className="w-12 h-12 sm:w-14 sm:h-14 bg-green-500/90 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-green-500 transition-all active:scale-95 shadow-lg"
                 >
-                  🚀 Poster
+                  <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                  </svg>
                 </button>
               </div>
             </div>

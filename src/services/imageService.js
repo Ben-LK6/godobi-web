@@ -1,147 +1,75 @@
 // src/services/imageService.js
-import axios from 'axios';
 import authService from './authService';
 
-const API_URL = 'http://localhost:8000/api';
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
-const imageService = {
+class ImageService {
   // Créer une nouvelle image
   async createImage(imageData) {
-    const token = authService.getToken();
-    console.log('URL appelée:', `${API_URL}/images`);
-    console.log('Token:', token);
-    console.log('Data:', imageData);
-    
-    const response = await axios.post(
-      `${API_URL}/images`,
-      imageData,
-      {
+    try {
+      const token = authService.getToken();
+      const response = await fetch(`${API_URL}/api/images`, {
+        method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      }
-    );
-    return response.data;
-  },
-
-  // Récupérer toutes mes images
-  async getMyImages() {
-    const token = authService.getToken();
-    const response = await axios.get(
-      `${API_URL}/images`,
-      {
-        headers: {
+          'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
-        }
+        },
+        body: JSON.stringify(imageData)
+      });
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        return { success: true, data: data.data };
+      } else {
+        return { success: false, message: data.message };
       }
-    );
-    return response.data;
-  },
-
-  // Récupérer une image par ID
-  async getImageById(id) {
-    const token = authService.getToken();
-    const response = await axios.get(
-      `${API_URL}/images/${id}`,
-      {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      }
-    );
-    return response.data;
-  },
-
-  // Supprimer une image
-  async deleteImage(id) {
-    const token = authService.getToken();
-    const response = await axios.delete(
-      `${API_URL}/images/${id}`,
-      {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      }
-    );
-    return response.data;
-  },
-
-  // Récupérer les images publiques (feed)
-  async getPublicImages() {
-    const response = await axios.get(`${API_URL}/images/public`);
-    return response.data;
-  },
-
-  // Toggle like (liker/unliker)
-  async toggleLike(imageId) {
-    const token = authService.getToken();
-    const response = await axios.post(
-      `${API_URL}/likes/${imageId}`,
-      {},
-      {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      }
-    );
-    return response.data;
-  },
-
-  // Alias pour compatibilité (Feed.jsx utilise likeImage)
-  async likeImage(imageId) {
-    return this.toggleLike(imageId);
-  },
-
-  // Vérifier si une image est likée
-  async checkLike(imageId) {
-    const token = authService.getToken();
-    const response = await axios.get(
-      `${API_URL}/likes/${imageId}`,
-      {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      }
-    );
-    return response.data;
-  },
-
-  // Récupérer les commentaires d'une image
-  async getComments(imageId) {
-    const response = await axios.get(`${API_URL}/comments/image/${imageId}`);
-    return response.data;
-  },
-
-  // Ajouter un commentaire
-  async addComment(imageId, commentText) {
-    const token = authService.getToken();
-    const response = await axios.post(
-      `${API_URL}/comments/image/${imageId}`,
-      { comment_text: commentText },
-      {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      }
-    );
-    return response.data;
-  },
-
-  // Supprimer un commentaire
-  async deleteComment(commentId) {
-    const token = authService.getToken();
-    const response = await axios.delete(
-      `${API_URL}/comments/${commentId}`,
-      {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      }
-    );
-    return response.data;
+    } catch (error) {
+      console.error('Erreur création image:', error);
+      return { success: false, message: 'Erreur de connexion' };
+    }
   }
-};
 
-export default imageService;
+  // Récupérer mes images
+  async getMyImages() {
+    try {
+      const token = authService.getToken();
+      const response = await fetch(`${API_URL}/api/images/my`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        return { success: true, data: data.data };
+      } else {
+        return { success: false, message: data.message };
+      }
+    } catch (error) {
+      console.error('Erreur récupération images:', error);
+      return { success: false, message: 'Erreur de connexion' };
+    }
+  }
+
+  // Convertir image en base64
+  async imageToBase64(imageUrl) {
+    try {
+      const response = await fetch(imageUrl);
+      const blob = await response.blob();
+      
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.readAsDataURL(blob);
+      });
+    } catch (error) {
+      console.error('Erreur conversion base64:', error);
+      return null;
+    }
+  }
+}
+
+export default new ImageService();

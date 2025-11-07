@@ -5,6 +5,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Create from './pages/Create';
+import TempGallery from './pages/TempGallery';
 import Editor from './pages/Editor';
 import Gallery from './pages/Gallery';
 import Feed from './pages/Feed';
@@ -26,6 +27,7 @@ function App() {
         {/* Routes protégées (avec Layout et Navbar) */}
         <Route path="/dashboard" element={<Layout><Dashboard /></Layout>} />
         <Route path="/create" element={<Create />} />
+        <Route path="/temp-gallery" element={<TempGallery />} />
         <Route path="/editor" element={<Layout><Editor /></Layout>} />
         <Route path="/gallery" element={<Layout><Gallery /></Layout>} />
         <Route path="/feed" element={<Layout><Feed /></Layout>} />
