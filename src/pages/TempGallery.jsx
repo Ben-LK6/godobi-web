@@ -48,11 +48,21 @@ function TempGallery() {
     }
   };
 
-  const handlePost = () => {
+  const handlePost = async () => {
     if (selectedImage) {
-      // TODO: Poster sur le feed
-      alert('🚀 Posté sur le feed !');
-      handleCloseModal();
+      try {
+        // Utiliser le système de publication de Create.jsx
+        // Rediriger vers Create avec l'image
+        navigate('/create', { 
+          state: { 
+            imageUrl: selectedImage.url,
+            mode: 'post_from_gallery'
+          } 
+        });
+      } catch (error) {
+        console.error('Erreur:', error);
+        alert('❌ Erreur lors de la publication');
+      }
     }
   };
 

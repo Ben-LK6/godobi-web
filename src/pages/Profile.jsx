@@ -301,7 +301,7 @@ function Profile() {
                     Crée ta première image !
                   </p>
                   <Link
-                    to="/editor"
+                    to="/create"
                     className="inline-block bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold"
                   >
                     Créer maintenant

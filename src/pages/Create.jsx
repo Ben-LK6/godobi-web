@@ -1,6 +1,6 @@
 // src/pages/Create.jsx
 import React, { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import authService from '../services/authService';
 import imageService from '../services/imageService';
 import CameraCapture from '../components/CameraCapture';
@@ -19,11 +19,18 @@ function Create() {
   const [showGallery, setShowGallery] = useState(false);
   const [isEnhancing, setIsEnhancing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [showPostModal, setShowPostModal] = useState(false);
+  const [postType, setPostType] = useState('profile'); // 'story' ou 'profile'
+  const [isPrivate, setIsPrivate] = useState(false);
+  const [postTitle, setPostTitle] = useState('');
+  const [postDescription, setPostDescription] = useState('');
+  const [isPosting, setIsPosting] = useState(false);
   
   const fileInputRef = useRef(null);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const navigate = useNavigate();
+  const location = useLocation();
 
   // Styles IA disponibles
   const aiStyles = [
@@ -47,7 +54,14 @@ function Create() {
     if (saved) {
       setSavedImages(JSON.parse(saved));
     }
-  }, [navigate]);
+
+    // Vérifier si on vient de la galerie avec une image
+    if (location.state?.imageUrl && location.state?.mode === 'post_from_gallery') {
+      setPreviewUrl(location.state.imageUrl);
+      setMode('gallery_post');
+      setShowPostModal(true);
+    }
+  }, [navigate, location.state]);
 
   // Générer depuis prompt
   const handleGenerateFromPrompt = async () => {
@@ -76,43 +90,120 @@ function Create() {
   };
 
   // Sauvegarder dans galerie temporaire
-  const handleSaveToGallery = (type, additionalData = {}) => {
+  const handleSaveToGallery = async (type, additionalData = {}) => {
     setIsSaving(true);
     
-    setTimeout(() => {
-      try {
-        // Créer l'objet image
-        const newImage = {
+    try {
+      // Convertir l'image en base64 pour éviter les erreurs de sécurité blob
+      const base64Image = await imageService.imageToBase64(previewUrl);
+      
+      // Créer l'objet image
+      const newImage = {
+        id: Date.now(),
+        url: base64Image, // Utiliser base64 au lieu de blob URL
+        type: type,
+        createdAt: new Date().toISOString(),
+        ...additionalData
+      };
+
+      // Ajouter à la galerie locale
+      setSavedImages(prev => {
+        const updated = [newImage, ...prev];
+        // Sauvegarder dans localStorage
+        localStorage.setItem('godobi_temp_gallery', JSON.stringify(updated));
+        return updated;
+      });
+      
+      alert('✅ Sauvegardé dans la galerie temporaire !');
+    } catch (error) {
+      console.error('Erreur sauvegarde:', error);
+      alert('❌ Erreur lors de la sauvegarde');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Ouvrir la modal de publication
+  const handlePost = () => {
+    setShowPostModal(true);
+  };
+
+  // Publier le contenu
+  const handlePublish = async () => {
+    if (!postTitle.trim()) {
+      alert('⚠️ Veuillez ajouter un titre');
+      return;
+    }
+
+    setIsPosting(true);
+    
+    try {
+      // Vérifier la connexion
+      const token = authService.getToken();
+      const currentUser = authService.getCurrentUser();
+      
+      if (!token || !currentUser) {
+        alert('⚠️ Vous devez être connecté pour publier');
+        navigate('/login');
+        return;
+      }
+
+      // Convertir l'image en base64 pour l'API
+      const base64Image = await imageService.imageToBase64(previewUrl);
+      
+      // Données pour l'API
+      const postData = {
+        title: postTitle,
+        description: postDescription,
+        generated_image: base64Image,
+        is_private: postType === 'profile' ? isPrivate : false,
+        post_type: postType, // 'story' ou 'profile'
+        image_type: mode.includes('ai') ? 'ai' : mode.includes('camera') ? 'camera' : 'upload'
+      };
+
+      // Publier via l'API
+      const response = await imageService.createImage(postData);
+      
+      if (response.success) {
+        // Sauvegarder aussi dans la galerie locale avec base64
+        const base64ForLocal = await imageService.imageToBase64(previewUrl);
+        const imageData = {
           id: Date.now(),
-          url: previewUrl,
-          type: type,
-          createdAt: new Date().toISOString(),
-          ...additionalData
+          url: base64ForLocal, // Utiliser base64 pour localStorage
+          type: mode.includes('ai') ? 'ai' : mode.includes('camera') ? 'camera' : 'upload',
+          title: postTitle,
+          description: postDescription,
+          postType: postType,
+          isPrivate: postType === 'profile' ? isPrivate : false,
+          createdAt: new Date().toISOString()
         };
 
-        // Ajouter à la galerie locale
         setSavedImages(prev => {
-          const updated = [newImage, ...prev];
-          // Sauvegarder dans localStorage
+          const updated = [imageData, ...prev];
           localStorage.setItem('godobi_temp_gallery', JSON.stringify(updated));
           return updated;
         });
         
-        alert('✅ Sauvegardé dans la galerie temporaire !');
-      } catch (error) {
-        console.error('Erreur sauvegarde:', error);
-        alert('❌ Erreur lors de la sauvegarde');
-      } finally {
-        setIsSaving(false);
+        alert(`🚀 Publié sur ${postType === 'story' ? 'Story' : 'Profil'} ${postType === 'profile' && isPrivate ? '(Privé)' : '(Public)'}!`);
+        
+        // Reset
+        setShowPostModal(false);
+        setPostTitle('');
+        setPostDescription('');
+        setPostType('profile');
+        setIsPrivate(false);
+        setMode('prompt');
+        
+      } else {
+        alert(`❌ Erreur: ${response.message}`);
       }
-    }, 500); // Simule un délai
-  };
-
-  // Poster directement
-  const handlePost = () => {
-    // TODO: Poster sur le feed
-    alert('🚀 Posté sur le feed !');
-    setMode('prompt');
+      
+    } catch (error) {
+      console.error('Erreur publication:', error);
+      alert('❌ Erreur lors de la publication');
+    } finally {
+      setIsPosting(false);
+    }
   };
 
   // Ouvrir la caméra
@@ -572,6 +663,47 @@ function Create() {
           </div>
         )}
 
+        {/* MODE: Post depuis galerie */}
+        {mode === 'gallery_post' && previewUrl && (
+          <div className="w-full h-full relative">
+            <img src={previewUrl} alt="Image de la galerie" className="w-full h-full object-contain bg-black" />
+            
+            <div className="absolute bottom-6 sm:bottom-8 left-0 right-0 flex justify-center">
+              <div className="flex items-center gap-4 sm:gap-6">
+                {/* Retour */}
+                <button
+                  onClick={() => navigate('/temp-gallery')}
+                  className="w-12 h-12 sm:w-14 sm:h-14 bg-gray-500/90 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-gray-500 transition-all active:scale-95 shadow-lg"
+                >
+                  <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+
+                {/* Éditer */}
+                <button
+                  onClick={() => navigate('/image-editor', { state: { imageUrl: previewUrl } })}
+                  className="w-12 h-12 sm:w-14 sm:h-14 bg-purple-500/90 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-purple-500 transition-all active:scale-95 shadow-lg"
+                >
+                  <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                </button>
+
+                {/* Poster */}
+                <button
+                  onClick={handlePost}
+                  className="w-12 h-12 sm:w-14 sm:h-14 bg-green-500/90 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-green-500 transition-all active:scale-95 shadow-lg"
+                >
+                  <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* MODE: Résultat amélioré */}
         {mode === 'enhanced_result' && previewUrl && (
           <div className="w-full h-full relative">
@@ -689,6 +821,183 @@ function Create() {
         onCapture={handleCameraCapture}
         onClose={handleCloseCamera}
       />
+
+      {/* Modal de Publication */}
+      {showPostModal && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+          {/* Overlay */}
+          <div 
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setShowPostModal(false)}
+          ></div>
+          
+          {/* Modal */}
+          <div className="relative w-full sm:w-96 bg-white rounded-t-3xl sm:rounded-3xl p-6 max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-gray-800">Publier</h2>
+              <button
+                onClick={() => setShowPostModal(false)}
+                className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200 transition-colors"
+              >
+                <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Aperçu de l'image */}
+            <div className="mb-6">
+              <div className="relative w-full h-48 bg-gray-100 rounded-2xl overflow-hidden">
+                <img 
+                  src={previewUrl} 
+                  alt="Aperçu" 
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            </div>
+
+            {/* Type de publication */}
+            <div className="mb-6">
+              <p className="text-sm font-medium text-gray-700 mb-3">Où publier ?</p>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => setPostType('story')}
+                  className={`p-4 rounded-xl border-2 transition-all ${
+                    postType === 'story'
+                      ? 'border-purple-500 bg-purple-50'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="text-center">
+                    <div className="text-2xl mb-2">📖</div>
+                    <p className="font-medium text-gray-800">Story</p>
+                    <p className="text-xs text-gray-500">24h</p>
+                  </div>
+                </button>
+                
+                <button
+                  onClick={() => setPostType('profile')}
+                  className={`p-4 rounded-xl border-2 transition-all ${
+                    postType === 'profile'
+                      ? 'border-blue-500 bg-blue-50'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="text-center">
+                    <div className="text-2xl mb-2">👤</div>
+                    <p className="font-medium text-gray-800">Profil</p>
+                    <p className="text-xs text-gray-500">Permanent</p>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            {/* Options de confidentialité (seulement pour profil) */}
+            {postType === 'profile' && (
+              <div className="mb-6">
+                <p className="text-sm font-medium text-gray-700 mb-3">Confidentialité</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => setIsPrivate(false)}
+                    className={`p-3 rounded-lg border-2 transition-all ${
+                      !isPrivate
+                        ? 'border-green-500 bg-green-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className="text-lg">🌍</div>
+                      <div className="text-left">
+                        <p className="font-medium text-gray-800 text-sm">Public</p>
+                        <p className="text-xs text-gray-500">Visible par tous</p>
+                      </div>
+                    </div>
+                  </button>
+                  
+                  <button
+                    onClick={() => setIsPrivate(true)}
+                    className={`p-3 rounded-lg border-2 transition-all ${
+                      isPrivate
+                        ? 'border-orange-500 bg-orange-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className="text-lg">🔒</div>
+                      <div className="text-left">
+                        <p className="font-medium text-gray-800 text-sm">Privé</p>
+                        <p className="text-xs text-gray-500">Amis seulement</p>
+                      </div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Titre */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Titre *
+              </label>
+              <input
+                type="text"
+                value={postTitle}
+                onChange={(e) => setPostTitle(e.target.value)}
+                placeholder="Donnez un titre à votre création..."
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:border-blue-500 transition-colors"
+                maxLength={100}
+              />
+              <p className="text-xs text-gray-500 mt-1">{postTitle.length}/100</p>
+            </div>
+
+            {/* Description */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Description
+              </label>
+              <textarea
+                value={postDescription}
+                onChange={(e) => setPostDescription(e.target.value)}
+                placeholder="Décrivez votre création (optionnel)..."
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:border-blue-500 transition-colors resize-none"
+                rows="3"
+                maxLength={500}
+              />
+              <p className="text-xs text-gray-500 mt-1">{postDescription.length}/500</p>
+            </div>
+
+            {/* Boutons d'action */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowPostModal(false)}
+                className="flex-1 py-3 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-colors"
+              >
+                Annuler
+              </button>
+              
+              <button
+                onClick={handlePublish}
+                disabled={!postTitle.trim() || isPosting}
+                className={`flex-1 py-3 px-4 rounded-xl font-medium transition-all ${
+                  postTitle.trim() && !isPosting
+                    ? 'bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white shadow-lg'
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
+              >
+                {isPosting ? (
+                  <div className="flex items-center justify-center gap-2">
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    <span>Publication...</span>
+                  </div>
+                ) : (
+                  `Publier ${postType === 'story' ? 'Story' : 'sur Profil'}`
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

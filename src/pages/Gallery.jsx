@@ -259,11 +259,11 @@ function Gallery() {
                   {/* Badge visibilité */}
                   <div className="absolute top-2 right-2">
                     <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                      image.is_public === 1
+                      !image.is_private
                         ? 'bg-green-500 text-white'
                         : 'bg-gray-800 text-white'
                     }`}>
-                      {image.is_public === 1 ? '🌍 Public' : '🔒 Privé'}
+                      {!image.is_private ? '🌍 Public' : '🔒 Privé'}
                     </span>
                   </div>
                 </div>
@@ -290,10 +290,10 @@ function Gallery() {
                   {/* Actions */}
                   <div className="flex gap-2">
                     <button
-                      onClick={() => toggleVisibility(image.id, image.is_public)}
+                      onClick={() => toggleVisibility(image.id, image.is_private)}
                       className="flex-1 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-semibold transition-colors"
                     >
-                      {image.is_public === 1 ? '🔒 Passer en privé' : '🌍 Publier'}
+                      {!image.is_private ? '🔒 Passer en privé' : '🌍 Publier'}
                     </button>
                     <button
                       onClick={() => handleDelete(image.id)}
