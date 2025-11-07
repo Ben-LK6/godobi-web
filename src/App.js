@@ -6,6 +6,7 @@ import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Create from './pages/Create';
 import TempGallery from './pages/TempGallery';
+import ImageEditor from './pages/ImageEditor';
 import Editor from './pages/Editor';
 import Gallery from './pages/Gallery';
 import Feed from './pages/Feed';
@@ -28,6 +29,7 @@ function App() {
         <Route path="/dashboard" element={<Layout><Dashboard /></Layout>} />
         <Route path="/create" element={<Create />} />
         <Route path="/temp-gallery" element={<TempGallery />} />
+        <Route path="/image-editor" element={<ImageEditor />} />
         <Route path="/editor" element={<Layout><Editor /></Layout>} />
         <Route path="/gallery" element={<Layout><Gallery /></Layout>} />
         <Route path="/feed" element={<Layout><Feed /></Layout>} />

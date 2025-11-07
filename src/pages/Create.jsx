@@ -207,7 +207,7 @@ function Create() {
                         <button
                           key={image.id}
                           onClick={() => {
-                            navigate('/editor', { state: { imageUrl: image.url } });
+                            navigate('/image-editor', { state: { imageUrl: image.url } });
                             setShowGallery(false);
                           }}
                           className="relative aspect-square rounded-lg overflow-hidden hover:scale-105 transition-transform"
@@ -426,7 +426,7 @@ function Create() {
 
                 {/* Éditer */}
                 <button
-                  onClick={() => navigate('/editor', { state: { imageUrl: previewUrl } })}
+                  onClick={() => navigate('/image-editor', { state: { imageUrl: previewUrl } })}
                   className="w-12 h-12 sm:w-14 sm:h-14 bg-purple-500/90 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-purple-500 transition-all active:scale-95 shadow-lg"
                 >
                   <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -475,7 +475,7 @@ function Create() {
 
                 {/* Éditer */}
                 <button
-                  onClick={() => navigate('/editor', { state: { imageUrl: previewUrl } })}
+                  onClick={() => navigate('/image-editor', { state: { imageUrl: previewUrl } })}
                   className="w-12 h-12 sm:w-14 sm:h-14 bg-purple-500/90 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-purple-500 transition-all active:scale-95 shadow-lg"
                 >
                   <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -537,7 +537,7 @@ function Create() {
 
                 {/* Éditer */}
                 <button
-                  onClick={() => navigate('/editor', { state: { imageUrl: previewUrl } })}
+                  onClick={() => navigate('/image-editor', { state: { imageUrl: previewUrl } })}
                   className="w-12 h-12 sm:w-14 sm:h-14 bg-purple-500/90 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-purple-500 transition-all active:scale-95 shadow-lg"
                 >
                   <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -598,7 +598,7 @@ function Create() {
 
                 {/* Éditer */}
                 <button
-                  onClick={() => navigate('/editor', { state: { imageUrl: previewUrl } })}
+                  onClick={() => navigate('/image-editor', { state: { imageUrl: previewUrl } })}
                   className="w-12 h-12 sm:w-14 sm:h-14 bg-purple-500/90 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-purple-500 transition-all active:scale-95 shadow-lg"
                 >
                   <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -645,7 +645,7 @@ function Create() {
             <div className="absolute bottom-4 sm:bottom-6 left-3 sm:left-4 right-3 sm:right-4 space-y-2 sm:space-y-3">
               <div className="grid grid-cols-2 gap-2 sm:gap-3">
                 <button
-                  onClick={() => navigate('/editor', { state: { imageUrl: previewUrl } })}
+                  onClick={() => navigate('/image-editor', { state: { imageUrl: previewUrl } })}
                   className="group bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white py-3 sm:py-4 rounded-xl sm:rounded-2xl font-semibold transition-all shadow-lg active:scale-[0.98] flex items-center justify-center gap-1 sm:gap-2"
                 >
                   <svg className="w-4 h-4 sm:w-5 sm:h-5 group-hover:rotate-12 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">

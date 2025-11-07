@@ -44,7 +44,7 @@ function TempGallery() {
 
   const handleEdit = () => {
     if (selectedImage) {
-      navigate('/editor', { state: { imageUrl: selectedImage.url } });
+      navigate('/image-editor', { state: { imageUrl: selectedImage.url } });
     }
   };
 

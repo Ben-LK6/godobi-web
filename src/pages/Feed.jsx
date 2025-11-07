@@ -229,7 +229,7 @@ function Feed() {
           <div className="col-span-12 lg:col-span-6">
             {/* Créer un post */}
             <div className="bg-white rounded-xl shadow-sm p-4 mb-4">
-              <Link to="/editor" className="flex items-center gap-3 p-3 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">
+              <Link to="/create" className="flex items-center gap-3 p-3 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">
                 <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold">
                   {user.username.charAt(0).toUpperCase()}
                 </div>
@@ -249,7 +249,7 @@ function Feed() {
                 <div className="text-6xl mb-4">📰</div>
                 <h3 className="text-xl font-bold text-gray-700 mb-2">Aucun post pour le moment</h3>
                 <p className="text-gray-500 mb-6">Sois le premier à créer quelque chose !</p>
-                <Link to="/editor" className="inline-block bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold">
+                <Link to="/create" className="inline-block bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold">
                   Créer un post
                 </Link>
               </div>
