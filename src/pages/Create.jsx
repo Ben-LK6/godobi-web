@@ -3,7 +3,9 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import authService from '../services/authService';
 import imageService from '../services/imageService';
+import audioService from '../services/audioService';
 import CameraCapture from '../components/CameraCapture';
+import AudioController from '../components/AudioController';
 
 function Create() {
   const [user, setUser] = useState(null);
@@ -30,6 +32,8 @@ function Create() {
   const [taggedFriends, setTaggedFriends] = useState([]);
   const [showMobilePanel, setShowMobilePanel] = useState(false);
   const [activeToolPanel, setActiveToolPanel] = useState(null);
+  const [audioPreview, setAudioPreview] = useState(null);
+  const [isPlaying, setIsPlaying] = useState(false);
   const [showConfigOverlay, setShowConfigOverlay] = useState(false);
   
   const fileInputRef = useRef(null);
@@ -67,6 +71,11 @@ function Create() {
       setMode('gallery_post');
       setShowPostModal(true);
     }
+    
+    // Nettoyage lors du démontage
+    return () => {
+      audioService.cleanup();
+    };
   }, [navigate, location.state]);
 
   // Générer depuis prompt
@@ -164,10 +173,91 @@ function Create() {
     setStoryElements([...storyElements, newElement]);
   };
 
+  // Bibliothèque de musiques libres de droits (exemples)
+  const musicLibrary = [
+    { id: 1, name: "Chill Vibes", artist: "Lofi Beats", duration: 30, url: "https://www.soundjay.com/misc/sounds/bell-ringing-05.wav", isDemo: true },
+    { id: 2, name: "Upbeat Energy", artist: "Pop Vibes", duration: 25, url: "https://www.soundjay.com/misc/sounds/bell-ringing-05.wav", isDemo: true },
+    { id: 3, name: "Ambient Dreams", artist: "Relaxing", duration: 40, url: "https://www.soundjay.com/misc/sounds/bell-ringing-05.wav", isDemo: true }
+  ];
+
   // Ajouter de la musique
   const handleAddMusic = () => {
-    // TODO: Implémenter sélecteur de musique
-    alert('🎵 Sélecteur de musique bientôt disponible !');
+    setActiveToolPanel(activeToolPanel === 'music' ? null : 'music');
+  };
+
+  // Sélectionner une musique
+  const handleSelectMusic = (music) => {
+    setSelectedMusic(music);
+    setActiveToolPanel(null);
+    // Arrêter la preview si elle joue
+    if (audioPreview) {
+      audioPreview.pause();
+      setIsPlaying(false);
+    }
+  };
+
+  // Preview audio avec le service
+  const handlePreviewMusic = async (music, event) => {
+    if (event && event.stopPropagation) {
+      event.stopPropagation();
+    }
+    
+    // Vérifier si c'est un fichier de démo
+    if (music.isDemo) {
+      alert('🎵 Fichier de démonstration\nImportez vos propres fichiers audio pour les écouter.');
+      return;
+    }
+    
+    try {
+      console.log('Démarrage preview pour:', music.name, music.url);
+      
+      // Démarrer nouvelle preview
+      await audioService.playPreview(music.url, Math.min(30, music.duration || 30));
+      setIsPlaying(true);
+      setAudioPreview({ src: music.url });
+      
+      console.log('Preview démarrée avec succès');
+      
+      // Arrêter automatiquement après la preview
+      setTimeout(() => {
+        console.log('Arrêt automatique de la preview');
+        setIsPlaying(false);
+        setAudioPreview(null);
+        audioService.stopPreview();
+      }, Math.min(30, music.duration || 30) * 1000);
+      
+    } catch (error) {
+      console.error('Erreur preview audio:', error);
+      setIsPlaying(false);
+      setAudioPreview(null);
+      alert('❌ Preview audio non disponible\nVérifiez que le fichier existe et est accessible.');
+    }
+  };
+
+  // Upload fichier audio
+  const handleMusicUpload = async () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'audio/*,.mp3,.wav,.ogg,.m4a,.aac';
+    input.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        try {
+          // Créer l'objet audio avec validation
+          const audioObject = await audioService.createAudioObject(file);
+          setSelectedMusic(audioObject);
+          setActiveToolPanel(null);
+          
+          // Optionnel: Upload vers l'API pour sauvegarde
+          // const token = authService.getToken();
+          // await audioService.uploadToAPI(file, token);
+          
+        } catch (error) {
+          alert(`❌ ${error.message}`);
+        }
+      }
+    };
+    input.click();
   };
 
   // Taguer des amis
@@ -206,7 +296,18 @@ function Create() {
         generated_image: base64Image,
         is_private: postType === 'profile' ? isPrivate : false,
         post_type: postType, // 'story' ou 'profile'
-        image_type: mode.includes('ai') ? 'ai' : mode.includes('camera') ? 'camera' : 'upload'
+        image_type: mode.includes('ai') ? 'ai' : mode.includes('camera') ? 'camera' : 'upload',
+        music: selectedMusic ? {
+          id: selectedMusic.id,
+          name: selectedMusic.name,
+          artist: selectedMusic.artist,
+          url: selectedMusic.url,
+          duration: selectedMusic.duration,
+          isCustom: selectedMusic.isCustom || false,
+          file: selectedMusic.file || null
+        } : null,
+        story_elements: storyElements,
+        tagged_friends: taggedFriends
       };
 
       // Publier via l'API
@@ -543,6 +644,8 @@ function Create() {
         {mode === 'ai_result' && previewUrl && (
           <div className="w-full h-full relative">
             <img src={previewUrl} alt="Généré par IA" className="w-full h-full object-contain bg-black" />
+            
+
             
             <div className="absolute bottom-6 sm:bottom-8 left-0 right-0 flex justify-center">
               <div className="flex items-center gap-4 sm:gap-6">
@@ -930,6 +1033,8 @@ function Create() {
                   </button>
                 </div>
 
+
+
                 {/* Outils Desktop seulement */}
                 <div className="absolute top-4 right-4 hidden sm:flex flex-col gap-2">
                   {postType === 'story' && (
@@ -950,14 +1055,71 @@ function Create() {
                     </button>
                   )}
                   
-                  <button 
-                    onClick={handleAddMusic}
-                    className="w-8 h-8 bg-black/60 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-black/80 transition-all border border-white/20"
-                  >
-                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-                    </svg>
-                  </button>
+                  {/* Bouton Musique ou Contrôleur Audio */}
+                  {selectedMusic ? (
+                    <div className="bg-black/60 backdrop-blur-md rounded-full p-1 flex items-center gap-1 border border-white/20">
+                      {/* Icône musique */}
+                      <div className="w-6 h-6 bg-gradient-to-br from-pink-500 to-purple-500 rounded-full flex items-center justify-center">
+                        <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                        </svg>
+                      </div>
+                      
+                      {/* Bouton Play/Pause */}
+                      <button
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          if (isPlaying && audioPreview?.src === selectedMusic.url) {
+                            audioService.stopPreview();
+                            setIsPlaying(false);
+                            setAudioPreview(null);
+                          } else {
+                            try {
+                              await handlePreviewMusic(selectedMusic, e);
+                            } catch (error) {
+                              console.error('Erreur play:', error);
+                            }
+                          }
+                        }}
+                        className="w-5 h-5 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center transition-all"
+                      >
+                        {isPlaying && audioPreview?.src === selectedMusic.url ? (
+                          <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6" />
+                          </svg>
+                        ) : (
+                          <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M8 5v14l11-7z"/>
+                          </svg>
+                        )}
+                      </button>
+                      
+                      {/* Bouton Supprimer */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          audioService.stopPreview();
+                          setIsPlaying(false);
+                          setAudioPreview(null);
+                          setSelectedMusic(null);
+                        }}
+                        className="w-5 h-5 bg-red-500/20 hover:bg-red-500/30 rounded-full flex items-center justify-center transition-all"
+                      >
+                        <svg className="w-2.5 h-2.5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  ) : (
+                    <button 
+                      onClick={handleAddMusic}
+                      className="w-8 h-8 bg-black/60 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-black/80 transition-all border border-white/20"
+                    >
+                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                      </svg>
+                    </button>
+                  )}
                   
                   <button 
                     onClick={handleTagFriends}
@@ -1088,6 +1250,110 @@ function Create() {
                   </div>
                 )}
 
+                {/* Sélecteur de Musique */}
+                {activeToolPanel === 'music' && (
+                  <div className="absolute top-4 right-16 sm:right-20 bg-black/90 backdrop-blur-md rounded-lg border border-white/20 w-72 max-h-80 overflow-hidden">
+                    {/* Header */}
+                    <div className="p-3 border-b border-gray-600">
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="text-white font-medium text-sm">Ajouter une musique</h3>
+                        <button
+                          onClick={() => setActiveToolPanel(null)}
+                          className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30"
+                        >
+                          <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                      
+                      {/* Bouton Upload */}
+                      <button
+                        onClick={handleMusicUpload}
+                        className="w-full p-2 bg-blue-500/20 border border-blue-400/30 rounded-lg text-blue-300 text-xs hover:bg-blue-500/30 transition-all flex items-center gap-2"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                        </svg>
+                        <span>Importer ma musique</span>
+                      </button>
+                    </div>
+
+                    {/* Liste des musiques */}
+                    <div className="max-h-60 overflow-y-auto">
+                      <div className="p-2">
+                        <p className="text-xs text-gray-400 mb-2 px-1">Bibliothèque</p>
+                        <div className="space-y-1">
+                          {musicLibrary.map((music) => (
+                            <div
+                              key={music.id}
+                              className={`w-full p-2 rounded-lg transition-all hover:bg-white/10 cursor-pointer ${
+                                selectedMusic?.id === music.id ? 'bg-green-500/20 border border-green-400/30' : ''
+                              }`}
+                              onClick={() => handleSelectMusic(music)}
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-white text-xs font-medium truncate">{music.name}</p>
+                                  <p className="text-gray-400 text-[10px] truncate">{music.artist}</p>
+                                </div>
+                                <div className="flex items-center gap-2 ml-2">
+                                  <span className="text-[10px] text-gray-400">{music.duration}s</span>
+                                  
+                                  {/* Bouton Preview */}
+                                  <button
+                                    onClick={(e) => handlePreviewMusic(music, e)}
+                                    className="w-6 h-6 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center transition-all"
+                                  >
+                                    {isPlaying && audioPreview?.src.includes(music.url) ? (
+                                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6" />
+                                      </svg>
+                                    ) : (
+                                      <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M8 5v14l11-7z"/>
+                                      </svg>
+                                    )}
+                                  </button>
+                                  
+                                  {selectedMusic?.id === music.id && (
+                                    <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Musique sélectionnée */}
+                    {selectedMusic && (
+                      <div className="p-3 border-t border-gray-600 bg-gray-800/50">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 bg-green-500/20 rounded-lg flex items-center justify-center">
+                            <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                            </svg>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-white text-xs font-medium truncate">{selectedMusic.name}</p>
+                            <p className="text-green-400 text-[10px]">{selectedMusic.artist}</p>
+                          </div>
+                          <button
+                            onClick={() => setSelectedMusic(null)}
+                            className="w-5 h-5 bg-red-500/20 rounded-full flex items-center justify-center hover:bg-red-500/30"
+                          >
+                            <svg className="w-3 h-3 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Boutons d'Action Mobile - Alignés sous les outils */}
                 <div className="absolute top-4 right-4 sm:hidden">
                   <div className="flex flex-col gap-2">
@@ -1110,14 +1376,66 @@ function Create() {
                       </button>
                     )}
                     
-                    <button 
-                      onClick={handleAddMusic}
-                      className="w-7 h-7 bg-black/60 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-black/80 transition-all border border-white/20"
-                    >
-                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-                      </svg>
-                    </button>
+                    {/* Bouton Musique ou Contrôleur Audio Mobile */}
+                    {selectedMusic ? (
+                      <div className="bg-black/60 backdrop-blur-md rounded-full p-1 flex items-center gap-1 border border-white/20">
+                        <div className="w-5 h-5 bg-gradient-to-br from-pink-500 to-purple-500 rounded-full flex items-center justify-center">
+                          <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                          </svg>
+                        </div>
+                        <button
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            if (isPlaying && audioPreview?.src === selectedMusic.url) {
+                              audioService.stopPreview();
+                              setIsPlaying(false);
+                              setAudioPreview(null);
+                            } else {
+                              try {
+                                await handlePreviewMusic(selectedMusic, e);
+                              } catch (error) {
+                                console.error('Erreur play:', error);
+                              }
+                            }
+                          }}
+                          className="w-4 h-4 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center transition-all"
+                        >
+                          {isPlaying && audioPreview?.src === selectedMusic.url ? (
+                            <svg className="w-2 h-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6" />
+                            </svg>
+                          ) : (
+                            <svg className="w-2 h-2 text-white" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M8 5v14l11-7z"/>
+                            </svg>
+                          )}
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            audioService.stopPreview();
+                            setIsPlaying(false);
+                            setAudioPreview(null);
+                            setSelectedMusic(null);
+                          }}
+                          className="w-4 h-4 bg-red-500/20 hover:bg-red-500/30 rounded-full flex items-center justify-center transition-all"
+                        >
+                          <svg className="w-2 h-2 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    ) : (
+                      <button 
+                        onClick={handleAddMusic}
+                        className="w-7 h-7 bg-black/60 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-black/80 transition-all border border-white/20"
+                      >
+                        <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                        </svg>
+                      </button>
+                    )}
                     
                     <button 
                       onClick={handleTagFriends}
@@ -1202,7 +1520,7 @@ function Create() {
                     
                     {/* Indicateurs et Bouton Partager */}
                     <div className="flex items-center justify-between mt-2">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className={`text-[10px] px-2 py-0.5 rounded-full ${
                           postType === 'story' ? 'bg-purple-500/30 text-purple-300' : 'bg-blue-500/30 text-blue-300'
                         }`}>
@@ -1220,6 +1538,12 @@ function Create() {
                         {storyElements.length > 0 && (
                           <span className="text-[10px] px-2 py-0.5 rounded-full bg-yellow-500/30 text-yellow-300">
                             ✨ {storyElements.length}
+                          </span>
+                        )}
+                        
+                        {selectedMusic && (
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-pink-500/30 text-pink-300">
+                            🎵 {selectedMusic.name}
                           </span>
                         )}
                       </div>
@@ -1373,7 +1697,7 @@ function Create() {
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
                   </svg>
-                  {selectedMusic ? `🎵 ${selectedMusic}` : 'Ajouter une musique'}
+                  {selectedMusic ? `🎵 ${selectedMusic.name}` : 'Ajouter une musique'}
                 </button>
                 
                 <button 

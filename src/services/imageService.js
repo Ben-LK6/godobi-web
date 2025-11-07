@@ -73,6 +73,156 @@ class ImageService {
     }
   }
 
+  // Récupérer les images publiques (feed)
+  async getPublicImages() {
+    try {
+      const token = authService.getToken();
+      const headers = {};
+      
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      
+      const response = await fetch(`${API_URL}/api/images/public`, {
+        method: 'GET',
+        headers
+      });
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        return { success: true, data: data.data };
+      } else {
+        return { success: false, message: data.message };
+      }
+    } catch (error) {
+      console.error('Erreur récupération feed:', error);
+      return { success: false, message: 'Erreur de connexion' };
+    }
+  }
+
+  // Vérifier si l'utilisateur a liké une image
+  async checkLike(imageId) {
+    try {
+      const token = authService.getToken();
+      const response = await fetch(`${API_URL}/api/likes/${imageId}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        return { success: true, data: data.data };
+      } else {
+        return { success: false, message: data.message };
+      }
+    } catch (error) {
+      console.error('Erreur vérification like:', error);
+      return { success: false, message: 'Erreur de connexion' };
+    }
+  }
+
+  // Toggle like sur une image
+  async toggleLike(imageId) {
+    try {
+      const token = authService.getToken();
+      const response = await fetch(`${API_URL}/api/likes/${imageId}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        return { success: true, data: data.data };
+      } else {
+        return { success: false, message: data.message };
+      }
+    } catch (error) {
+      console.error('Erreur toggle like:', error);
+      return { success: false, message: 'Erreur de connexion' };
+    }
+  }
+
+  // Récupérer les commentaires d'une image
+  async getComments(imageId) {
+    try {
+      const token = authService.getToken();
+      const response = await fetch(`${API_URL}/api/comments/image/${imageId}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        return { success: true, data: data.data };
+      } else {
+        return { success: false, message: data.message };
+      }
+    } catch (error) {
+      console.error('Erreur récupération commentaires:', error);
+      return { success: false, message: 'Erreur de connexion' };
+    }
+  }
+
+  // Ajouter un commentaire
+  async addComment(imageId, commentText) {
+    try {
+      const token = authService.getToken();
+      const response = await fetch(`${API_URL}/api/comments/image/${imageId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ comment_text: commentText })
+      });
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        return { success: true, data: data.data };
+      } else {
+        return { success: false, message: data.message };
+      }
+    } catch (error) {
+      console.error('Erreur ajout commentaire:', error);
+      return { success: false, message: 'Erreur de connexion' };
+    }
+  }
+
+  // Supprimer un commentaire
+  async deleteComment(commentId) {
+    try {
+      const token = authService.getToken();
+      const response = await fetch(`${API_URL}/api/comments/${commentId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        return { success: true, data: data.data };
+      } else {
+        return { success: false, message: data.message };
+      }
+    } catch (error) {
+      console.error('Erreur suppression commentaire:', error);
+      return { success: false, message: 'Erreur de connexion' };
+    }
+  }
+
   // Convertir image en base64
   async imageToBase64(imageUrl) {
     try {
