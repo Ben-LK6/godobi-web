@@ -183,9 +183,9 @@ function Navbar() {
             </Link>
 
             <Link
-              to="/editor"
+              to="/create"
               className={`flex flex-col items-center gap-1 px-6 py-2 rounded-lg transition-all ${
-                isActive('/editor')
+                isActive('/create')
                   ? 'text-blue-600 bg-blue-50'
                   : 'text-gray-600 hover:bg-gray-100'
               }`}
