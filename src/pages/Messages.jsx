@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import authService from '../services/authService';
 import messageService from '../services/messageService';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import MobileNav from '../components/MobileNav';
 
 function Messages() {
   const [user, setUser] = useState(null);
@@ -228,25 +229,25 @@ function Messages() {
   }
 
   return (
-    <div className="h-screen bg-gray-100 pt-16">
-      <div className="h-full max-w-7xl mx-auto px-4 py-4">
-        <div className="bg-white rounded-xl shadow-md overflow-hidden h-full flex">
+    <div className="h-screen bg-gray-50 pb-20 lg:pb-0">
+      <div className="h-full max-w-5xl mx-auto flex">
+        <div className="bg-white shadow-sm overflow-hidden h-full flex w-full">
           {/* Liste des conversations */}
-          <div className="w-80 border-r border-gray-200 flex flex-col">
-            <div className="p-4 border-b bg-white">
-              <h2 className="text-xl font-bold text-gray-800">Messages</h2>
+          <div className={`${selectedContact ? 'hidden lg:flex' : 'flex'} w-full lg:w-80 border-r border-gray-200 flex-col`}>
+            <div className="p-3 border-b bg-white">
+              <h2 className="text-lg font-semibold text-gray-900">💬 Messages</h2>
             </div>
 
             <div className="flex-1 overflow-y-auto">
               {loading ? (
-                <div className="p-8 text-center">
-                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <div className="p-6 text-center">
+                  <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
                 </div>
               ) : conversations.length === 0 ? (
-                <div className="p-8 text-center">
-                  <div className="text-5xl mb-3">💬</div>
-                  <p className="text-gray-600 text-sm mb-3">Aucune conversation</p>
-                  <Link to="/friends" className="text-blue-600 hover:text-blue-700 font-semibold text-sm">
+                <div className="p-6 text-center">
+                  <div className="text-3xl mb-2">💬</div>
+                  <p className="text-gray-600 text-sm mb-2">Aucune conversation</p>
+                  <Link to="/friends" className="text-blue-600 hover:text-blue-700 font-medium text-sm">
                     Ajouter des amis →
                   </Link>
                 </div>
@@ -255,26 +256,29 @@ function Messages() {
                   <div
                     key={conv.contact_id}
                     onClick={() => handleSelectContact(conv)}
-                    className={`p-4 border-b cursor-pointer transition-colors ${
+                    className={`p-3 cursor-pointer transition-colors ${
                       selectedContact?.contact_id === conv.contact_id
-                        ? 'bg-blue-50 border-l-4 border-l-blue-500'
+                        ? 'bg-blue-50'
                         : 'hover:bg-gray-50'
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0">
-                        {conv.username.charAt(0).toUpperCase()}
+                      <div className="relative">
+                        <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0">
+                          {conv.username.charAt(0).toUpperCase()}
+                        </div>
+                        {conv.unread_count > 0 && (
+                          <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center">
+                            {conv.unread_count > 9 ? '9+' : conv.unread_count}
+                          </div>
+                        )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-1">
-                          <h3 className="font-bold text-gray-800 truncate">{conv.username}</h3>
-                          {conv.unread_count > 0 && (
-                            <span className="bg-blue-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
-                              {conv.unread_count}
-                            </span>
-                          )}
+                        <div className="flex items-center justify-between mb-0.5">
+                          <h3 className="font-medium text-gray-900 truncate text-sm">{conv.username}</h3>
+                          <span className="text-xs text-gray-500">{formatTime(conv.last_message_time)}</span>
                         </div>
-                        <p className="text-sm text-gray-500 truncate">{conv.last_message}</p>
+                        <p className="text-xs text-gray-500 truncate">{conv.last_message}</p>
                       </div>
                     </div>
                   </div>
@@ -284,49 +288,57 @@ function Messages() {
           </div>
 
           {/* Zone de conversation */}
-          <div className="flex-1 flex flex-col">
+          <div className={`${selectedContact ? 'flex' : 'hidden lg:flex'} flex-1 flex-col`}>
             {!selectedContact ? (
               <div className="flex-1 flex items-center justify-center bg-gray-50">
                 <div className="text-center">
-                  <div className="text-6xl mb-4">💬</div>
-                  <h3 className="text-xl font-bold text-gray-800 mb-2">
+                  <div className="text-4xl mb-3">💬</div>
+                  <h3 className="text-lg font-semibold text-gray-800 mb-1">
                     Sélectionne une conversation
                   </h3>
-                  <p className="text-gray-600">
-                    Choisis un contact pour commencer à discuter
+                  <p className="text-gray-600 text-sm">
+                    Choisis un contact pour discuter
                   </p>
                 </div>
               </div>
             ) : (
               <>
                 {/* Header */}
-                <div className="p-4 border-b bg-white flex items-center gap-3">
+                <div className="p-3 border-b bg-white flex items-center gap-3">
+                  <button
+                    onClick={() => setSelectedContact(null)}
+                    className="lg:hidden p-2 hover:bg-gray-100 rounded-full transition-colors"
+                  >
+                    <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
                   <Link 
                     to={`/user/${selectedContact.contact_id}`}
-                    className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+                    className="flex items-center gap-3 hover:opacity-80 transition-opacity flex-1"
                   >
                     <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold">
                       {selectedContact.username.charAt(0).toUpperCase()}
                     </div>
                     <div>
-                      <h3 className="font-bold text-gray-800">
+                      <h3 className="font-medium text-gray-900 text-sm">
                         {selectedContact.username}
                       </h3>
-                      <p className="text-xs text-gray-500">Cliquer pour voir le profil</p>
+                      <p className="text-xs text-gray-500">Voir le profil</p>
                     </div>
                   </Link>
                 </div>
 
                 {/* Messages */}
-                <div className="flex-1 overflow-y-auto p-4 bg-gray-50">
+                <div className="flex-1 overflow-y-auto p-3 bg-gray-50">
                   {messages.length === 0 ? (
-                    <div className="text-center py-20">
-                      <div className="text-5xl mb-4">💬</div>
-                      <p className="text-gray-600">Aucun message</p>
-                      <p className="text-sm text-gray-500 mt-2">Commence la conversation !</p>
+                    <div className="text-center py-12">
+                      <div className="text-3xl mb-2">💬</div>
+                      <p className="text-gray-600 text-sm">Aucun message</p>
+                      <p className="text-xs text-gray-500 mt-1">Commence la conversation !</p>
                     </div>
                   ) : (
-                    <div className="space-y-2">
+                    <div className="space-y-1">
                       {messages.map((msg, index) => {
                         const isMe = msg.sender_id === parseInt(user.id);
                         const prevMsg = index > 0 ? messages[index - 1] : null;
@@ -340,50 +352,50 @@ function Messages() {
                           <div
                             key={msg.id}
                             className={`flex items-end gap-2 ${isMe ? 'flex-row-reverse' : 'flex-row'} ${
-                              groupWithPrev ? 'mt-0.5' : 'mt-3'
+                              groupWithPrev ? 'mt-0.5' : 'mt-2'
                             }`}
                           >
-                            <div className="w-8 h-8 flex-shrink-0">
+                            <div className="w-6 h-6 flex-shrink-0">
                               {!isMe && showAvatar && (
-                                <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-xs">
+                                <div className="w-6 h-6 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-xs">
                                   {selectedContact.username.charAt(0).toUpperCase()}
                                 </div>
                               )}
                             </div>
 
-                            <div className="flex flex-col max-w-[70%]">
+                            <div className="flex flex-col max-w-[75%]">
                               <div
-                                className={`group relative px-4 py-2 break-words ${
+                                className={`group relative px-3 py-2 break-words text-sm ${
                                   isMe
                                     ? 'bg-blue-500 text-white'
-                                    : 'bg-white text-gray-800 border border-gray-200'
+                                    : 'bg-white text-gray-800'
                                 } ${
                                   isMe
                                     ? groupWithPrev && groupWithNext
-                                      ? 'rounded-2xl rounded-tr-md rounded-br-md'
+                                      ? 'rounded-2xl rounded-tr-lg'
                                       : groupWithPrev
-                                      ? 'rounded-2xl rounded-tr-md'
+                                      ? 'rounded-2xl rounded-tr-lg'
                                       : groupWithNext
-                                      ? 'rounded-2xl rounded-br-md'
-                                      : 'rounded-2xl rounded-br-md'
+                                      ? 'rounded-2xl rounded-br-lg'
+                                      : 'rounded-2xl'
                                     : groupWithPrev && groupWithNext
-                                    ? 'rounded-2xl rounded-tl-md rounded-bl-md'
+                                    ? 'rounded-2xl rounded-tl-lg'
                                     : groupWithPrev
-                                    ? 'rounded-2xl rounded-tl-md'
+                                    ? 'rounded-2xl rounded-tl-lg'
                                     : groupWithNext
-                                    ? 'rounded-2xl rounded-bl-md'
-                                    : 'rounded-2xl rounded-bl-md'
-                                } shadow-sm hover:shadow-md transition-shadow`}
+                                    ? 'rounded-2xl rounded-bl-lg'
+                                    : 'rounded-2xl'
+                                } shadow-sm`}
                               >
                                 <p className="whitespace-pre-wrap">{msg.message_text}</p>
 
                                 {isMe && (
                                   <div
-                                    className={`absolute top-0 left-0 -translate-x-full opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 px-2`}
+                                    className={`absolute top-0 left-0 -translate-x-full opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 px-1`}
                                   >
                                     <button
                                       onClick={() => handleDeleteMessage(msg.id)}
-                                      className="bg-red-500 hover:bg-red-600 text-white p-1.5 rounded-full text-xs"
+                                      className="bg-red-500 hover:bg-red-600 text-white p-1 rounded-full text-xs"
                                       title="Supprimer"
                                     >
                                       🗑️
@@ -393,12 +405,12 @@ function Messages() {
                               </div>
 
                               {showTime && (
-                                <div className={`flex items-center gap-1 mt-0.5 px-2 ${isMe ? 'justify-end' : 'justify-start'}`}>
-                                  <span className="text-xs text-gray-500">
+                                <div className={`flex items-center gap-1 mt-0.5 px-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
+                                  <span className="text-xs text-gray-400">
                                     {formatTime(msg.sent_at)}
                                   </span>
                                   {isMe && (
-                                    <span className="text-xs text-gray-500">
+                                    <span className="text-xs text-gray-400">
                                       {msg.is_read ? '✓✓' : '✓'}
                                     </span>
                                   )}
@@ -414,8 +426,8 @@ function Messages() {
                 </div>
 
                 {/* Input */}
-                <div className="p-4 border-t bg-white">
-                  <div className="flex gap-2">
+                <div className="p-3 border-t bg-white">
+                  <div className="flex gap-2 items-end">
                     <input
                       type="text"
                       value={newMessage}
@@ -426,13 +438,16 @@ function Messages() {
                         }
                       }}
                       placeholder="Écris un message..."
-                      className="flex-1 px-4 py-3 border-2 border-gray-200 rounded-full focus:border-blue-500 focus:outline-none"
+                      className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-full focus:border-blue-500 focus:outline-none bg-gray-50 focus:bg-white transition-colors"
                     />
                     <button
                       onClick={handleSendMessage}
-                      className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-full font-semibold transition-colors"
+                      disabled={!newMessage.trim()}
+                      className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 text-white p-2 rounded-full transition-colors"
                     >
-                      Envoyer
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                      </svg>
                     </button>
                   </div>
                 </div>
@@ -441,6 +456,8 @@ function Messages() {
           </div>
         </div>
       </div>
+      
+      <MobileNav />
     </div>
   );
 }

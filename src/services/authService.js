@@ -3,6 +3,19 @@ import axios from 'axios';
 
 const API_URL = 'http://localhost:8000/api';
 
+// Intercepteur pour gérer les erreurs d'authentification
+axios.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      // Token expiré ou invalide
+      authService.logout();
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
+
 const authService = {
   // Inscription
   async register(userData) {
@@ -31,7 +44,26 @@ const authService = {
 
   // Vérifier si l'utilisateur est connecté
   isAuthenticated() {
-    return localStorage.getItem('token') !== null;
+    const token = localStorage.getItem('token');
+    if (!token) return false;
+    
+    try {
+      // Vérifier si le token n'est pas expiré
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const now = Math.floor(Date.now() / 1000);
+      
+      if (payload.exp && payload.exp < now) {
+        // Token expiré
+        this.logout();
+        return false;
+      }
+      
+      return true;
+    } catch (error) {
+      // Token malformé
+      this.logout();
+      return false;
+    }
   },
 
   // Récupérer l'utilisateur actuel

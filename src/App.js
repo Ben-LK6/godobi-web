@@ -14,7 +14,10 @@ import Profile from './pages/Profile';
 import Friends from './pages/Friends';
 import Messages from './pages/Messages';
 import UserProfile from './pages/UserProfile';
+import Stories from './pages/Stories';
+import CreateStory from './pages/CreateStory';
 import Layout from './components/Layout';
+import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
   return (
@@ -26,17 +29,19 @@ function App() {
         <Route path="/register" element={<Register />} />
 
         {/* Routes protégées (avec Layout et Navbar) */}
-        <Route path="/dashboard" element={<Layout><Dashboard /></Layout>} />
-        <Route path="/create" element={<Create />} />
-        <Route path="/temp-gallery" element={<TempGallery />} />
-        <Route path="/image-editor" element={<ImageEditor />} />
-        <Route path="/editor" element={<Layout><Editor /></Layout>} />
-        <Route path="/gallery" element={<Layout><Gallery /></Layout>} />
-        <Route path="/feed" element={<Layout><Feed /></Layout>} />
-        <Route path="/profile" element={<Layout><Profile /></Layout>} />
-        <Route path="/friends" element={<Layout><Friends /></Layout>} />
-        <Route path="/messages" element={<Layout><Messages /></Layout>} />
-        <Route path="/user/:userId" element={<Layout><UserProfile /></Layout>} />
+        <Route path="/dashboard" element={<ProtectedRoute><Layout><Dashboard /></Layout></ProtectedRoute>} />
+        <Route path="/create" element={<ProtectedRoute><Create /></ProtectedRoute>} />
+        <Route path="/temp-gallery" element={<ProtectedRoute><TempGallery /></ProtectedRoute>} />
+        <Route path="/image-editor" element={<ProtectedRoute><ImageEditor /></ProtectedRoute>} />
+        <Route path="/editor" element={<ProtectedRoute><Layout><Editor /></Layout></ProtectedRoute>} />
+        <Route path="/gallery" element={<ProtectedRoute><Layout><Gallery /></Layout></ProtectedRoute>} />
+        <Route path="/feed" element={<ProtectedRoute><Layout><Feed /></Layout></ProtectedRoute>} />
+        <Route path="/profile" element={<ProtectedRoute><Layout><Profile /></Layout></ProtectedRoute>} />
+        <Route path="/friends" element={<ProtectedRoute><Layout><Friends /></Layout></ProtectedRoute>} />
+        <Route path="/messages" element={<ProtectedRoute><Layout><Messages /></Layout></ProtectedRoute>} />
+        <Route path="/user/:userId" element={<ProtectedRoute><Layout><UserProfile /></Layout></ProtectedRoute>} />
+        <Route path="/stories" element={<ProtectedRoute><Layout><Stories /></Layout></ProtectedRoute>} />
+        <Route path="/create-story" element={<ProtectedRoute><CreateStory /></ProtectedRoute>} />
       </Routes>
     </Router>
   );

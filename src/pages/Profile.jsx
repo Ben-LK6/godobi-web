@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import authService from '../services/authService';
 import imageService from '../services/imageService';
+import MobileNav from '../components/MobileNav';
 
 function Profile() {
   const [user, setUser] = useState(null);
@@ -365,6 +366,8 @@ function Profile() {
           </div>
         </div>
       </div>
+      
+      <MobileNav />
     </div>
   );
 }

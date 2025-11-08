@@ -136,12 +136,26 @@ class ImageService {
         }
       });
 
-      const data = await response.json();
+      // Vérifier si la réponse est vide
+      const responseText = await response.text();
+      
+      if (!responseText) {
+        console.error('Réponse vide du serveur pour toggleLike');
+        return { success: false, message: 'Erreur serveur - réponse vide' };
+      }
+
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('Erreur parsing JSON toggleLike:', parseError, 'Réponse:', responseText);
+        return { success: false, message: 'Erreur format réponse serveur' };
+      }
       
       if (response.ok) {
         return { success: true, data: data.data };
       } else {
-        return { success: false, message: data.message };
+        return { success: false, message: data.message || 'Erreur serveur' };
       }
     } catch (error) {
       console.error('Erreur toggle like:', error);
@@ -186,12 +200,26 @@ class ImageService {
         body: JSON.stringify({ comment_text: commentText })
       });
 
-      const data = await response.json();
+      // Vérifier si la réponse est vide
+      const responseText = await response.text();
+      
+      if (!responseText) {
+        console.error('Réponse vide du serveur pour addComment');
+        return { success: false, message: 'Erreur serveur - réponse vide' };
+      }
+
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('Erreur parsing JSON addComment:', parseError, 'Réponse:', responseText);
+        return { success: false, message: 'Erreur format réponse serveur' };
+      }
       
       if (response.ok) {
         return { success: true, data: data.data };
       } else {
-        return { success: false, message: data.message };
+        return { success: false, message: data.message || 'Erreur serveur' };
       }
     } catch (error) {
       console.error('Erreur ajout commentaire:', error);
@@ -247,4 +275,5 @@ class ImageService {
   }
 }
 
-export default new ImageService();
+const imageService = new ImageService();
+export default imageService;

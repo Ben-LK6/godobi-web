@@ -1,172 +1,385 @@
 // src/pages/ImageEditor.jsx
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import authService from '../services/authService';
+import ToolPanel from '../components/editor/ToolPanel';
+import StickerPanel from '../components/editor/StickerPanel';
+import ColorPanel from '../components/editor/ColorPanel';
 
 function ImageEditor() {
   const navigate = useNavigate();
   const location = useLocation();
   const canvasRef = useRef(null);
   const [imageUrl, setImageUrl] = useState(null);
-  const [activeTab, setActiveTab] = useState('text');
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-
-  // États pour les outils
-  const [textElements, setTextElements] = useState([]);
+  const [elements, setElements] = useState([]);
   const [selectedElement, setSelectedElement] = useState(null);
+  const [tool, setTool] = useState('select'); // select, text, bubble, sticker, draw
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [showTextInput, setShowTextInput] = useState(false);
   const [textInput, setTextInput] = useState('');
-  const [textColor, setTextColor] = useState('#ffffff');
-  const [textSize, setTextSize] = useState(24);
-
-  // États pour les filtres
-  const [filters, setFilters] = useState({
-    brightness: 100,
-    contrast: 100,
-    saturation: 100,
-    blur: 0
-  });
-
-  const tabs = [
-    { id: 'text', name: 'Texte', icon: '💬' },
-    { id: 'filters', name: 'Filtres', icon: '🎨' },
-    { id: 'stickers', name: 'Stickers', icon: '😀' },
-    { id: 'draw', name: 'Dessiner', icon: '✏️' }
-  ];
-
-  const stickers = ['😀', '😍', '🔥', '💯', '✨', '❤️', '👍', '🎉', '💪', '🌟', '🚀', '💎'];
+  const [showColorPicker, setShowColorPicker] = useState(false);
+  const [currentColor, setCurrentColor] = useState('#ffffff');
+  const [fontSize, setFontSize] = useState(24);
+  const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
+  const [history, setHistory] = useState([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const [isResizing, setIsResizing] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [showMobileTools, setShowMobileTools] = useState(false);
+  const [touchStart, setTouchStart] = useState(null);
+  const [isMultiTouch, setIsMultiTouch] = useState(false);
 
   useEffect(() => {
-    // Récupérer l'URL de l'image depuis les paramètres de navigation
-    const imageUrl = location.state?.imageUrl;
-    if (imageUrl) {
-      setImageUrl(imageUrl);
-      setIsLoading(false);
-    } else {
-      navigate('/temp-gallery');
+    if (!authService.isAuthenticated()) {
+      navigate('/login');
+      return;
     }
-  }, [location, navigate]);
 
-  const handleAddText = () => {
-    if (!textInput.trim()) return;
-
-    const newText = {
-      id: Date.now(),
-      text: textInput,
-      x: 50,
-      y: 30 + (textElements.length * 10),
-      color: textColor,
-      size: textSize,
-      type: 'text'
-    };
-
-    setTextElements([...textElements, newText]);
-    setTextInput('');
-    setShowTextInput(false);
-  };
-
-  const handleAddSticker = (sticker) => {
-    const newSticker = {
-      id: Date.now(),
-      text: sticker,
-      x: 50,
-      y: 30 + (textElements.length * 10),
-      size: 40,
-      type: 'sticker'
-    };
-
-    setTextElements([...textElements, newSticker]);
-  };
-
-  const handleDeleteElement = (id) => {
-    setTextElements(textElements.filter(el => el.id !== id));
-    setSelectedElement(null);
-  };
-
-  const handleSave = async () => {
-    if (isSaving) return;
+    // Détecter si on est sur mobile
+    setIsMobile(window.innerWidth < 768);
     
-    try {
-      setIsSaving(true);
-      
-      // Créer un canvas pour capturer l'image avec les modifications
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      const img = canvasRef.current;
-      
-      // Vérifier que l'image est chargée
-      if (!img || !img.complete) {
-        throw new Error('Image non chargée');
+    // Récupérer l'image depuis les props de navigation
+    if (location.state?.imageUrl) {
+      setImageUrl(location.state.imageUrl);
+    } else {
+      navigate('/create');
+    }
+
+    // Raccourcis clavier
+    const handleKeyDown = (e) => {
+      if (e.key === 'Delete' && selectedElement) {
+        deleteSelectedElement();
+      } else if (e.key === 'v' || e.key === 'V') {
+        setTool('select');
+      } else if (e.key === 't' || e.key === 'T') {
+        setTool('text');
+      } else if (e.key === 'b' || e.key === 'B') {
+        setTool('bubble');
+      } else if (e.ctrlKey && e.key === 'z') {
+        e.preventDefault();
+        undo();
+      } else if (e.ctrlKey && e.key === 'y') {
+        e.preventDefault();
+        redo();
       }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [navigate, location.state, selectedElement]);
+
+  useEffect(() => {
+    if (imageUrl && canvasRef.current) {
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext('2d');
+      const img = new Image();
       
-      // Définir la taille du canvas
-      canvas.width = img.naturalWidth;
-      canvas.height = img.naturalHeight;
-      
-      // Créer une nouvelle image pour éviter les problèmes CORS
-      const sourceImg = new Image();
-      sourceImg.crossOrigin = 'anonymous';
-      
-      await new Promise((resolve, reject) => {
-        sourceImg.onload = resolve;
-        sourceImg.onerror = reject;
-        sourceImg.src = imageUrl;
-      });
-      
-      // Appliquer les filtres
-      ctx.filter = `brightness(${filters.brightness}%) contrast(${filters.contrast}%) saturate(${filters.saturation}%) blur(${filters.blur}px)`;
-      
-      // Dessiner l'image de base
-      ctx.drawImage(sourceImg, 0, 0, canvas.width, canvas.height);
-      
-      // Réinitialiser le filtre pour les éléments
-      ctx.filter = 'none';
-      
-      // Ajouter les éléments de texte et stickers
-      textElements.forEach(element => {
-        const x = (element.x / 100) * canvas.width;
-        const y = (element.y / 100) * canvas.height;
+      img.onload = () => {
+        // Ajuster la taille du canvas
+        const maxWidth = Math.min(800, window.innerWidth - 40);
+        const maxHeight = Math.min(600, window.innerHeight - 200);
         
-        if (element.type === 'text') {
-          ctx.fillStyle = element.color;
-          ctx.font = `${element.size}px Arial`;
-          ctx.textAlign = 'center';
-          ctx.fillText(element.text, x, y);
-        } else if (element.type === 'sticker') {
-          ctx.font = `${element.size}px Arial`;
-          ctx.textAlign = 'center';
-          ctx.fillText(element.text, x, y);
+        let { width, height } = img;
+        
+        if (width > maxWidth) {
+          height = (height * maxWidth) / width;
+          width = maxWidth;
         }
-      });
-      
-      // Convertir en base64
-      const editedImageUrl = canvas.toDataURL('image/jpeg', 0.9);
-      
-      // Sauvegarder dans la galerie temporaire
-      const savedImages = JSON.parse(localStorage.getItem('godobi_temp_gallery') || '[]');
-      const newImage = {
-        id: Date.now(),
-        url: editedImageUrl,
-        type: 'edited',
-        title: 'Image éditée',
-        createdAt: new Date().toISOString()
+        
+        if (height > maxHeight) {
+          width = (width * maxHeight) / height;
+          height = maxHeight;
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        setCanvasSize({ width, height });
+        
+        // Dessiner l'image
+        ctx.drawImage(img, 0, 0, width, height);
+        redrawElements();
       };
       
-      const updatedImages = [newImage, ...savedImages];
-      localStorage.setItem('godobi_temp_gallery', JSON.stringify(updatedImages));
+      img.src = imageUrl;
+    }
+  }, [imageUrl]);
+
+  const redrawElements = () => {
+    if (!canvasRef.current) return;
+    
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    
+    // Redessiner l'image de base
+    const img = new Image();
+    img.onload = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       
-      alert('✅ Image éditée sauvegardée !');
-      navigate('/temp-gallery');
-      
-    } catch (error) {
-      console.error('Erreur sauvegarde:', error);
-      alert('❌ Erreur lors de la sauvegarde');
-    } finally {
-      setIsSaving(false);
+      // Dessiner tous les éléments
+      elements.forEach(element => {
+        drawElement(ctx, element);
+      });
+    };
+    img.src = imageUrl;
+  };
+
+  const drawElement = (ctx, element) => {
+    ctx.save();
+    
+    switch (element.type) {
+      case 'text':
+        ctx.font = `${element.fontSize || 24}px Arial`;
+        ctx.fillStyle = element.color || '#ffffff';
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 2;
+        ctx.strokeText(element.text, element.x, element.y);
+        ctx.fillText(element.text, element.x, element.y);
+        break;
+        
+      case 'bubble':
+        // Dessiner bulle de dialogue
+        const padding = 10;
+        const textWidth = ctx.measureText(element.text).width;
+        const bubbleWidth = textWidth + padding * 2;
+        const bubbleHeight = (element.fontSize || 24) + padding * 2;
+        
+        // Bulle
+        ctx.fillStyle = element.backgroundColor || '#ffffff';
+        ctx.strokeStyle = element.borderColor || '#000000';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.roundRect(element.x - padding, element.y - bubbleHeight + padding, bubbleWidth, bubbleHeight, 10);
+        ctx.fill();
+        ctx.stroke();
+        
+        // Queue de la bulle
+        ctx.beginPath();
+        ctx.moveTo(element.x + bubbleWidth/4, element.y + padding);
+        ctx.lineTo(element.x + bubbleWidth/4 - 10, element.y + padding + 15);
+        ctx.lineTo(element.x + bubbleWidth/4 + 10, element.y + padding + 15);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        
+        // Texte
+        ctx.fillStyle = element.textColor || '#000000';
+        ctx.font = `${element.fontSize || 18}px Arial`;
+        ctx.fillText(element.text, element.x, element.y);
+        break;
+        
+      case 'sticker':
+        ctx.font = `${element.size || 40}px Arial`;
+        ctx.fillText(element.emoji, element.x, element.y);
+        break;
+    }
+    
+    // Dessiner la sélection
+    if (selectedElement && selectedElement.id === element.id) {
+      ctx.strokeStyle = '#00ff00';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5, 5]);
+      ctx.strokeRect(element.x - 5, element.y - 25, 100, 30);
+      ctx.setLineDash([]);
+    }
+    
+    ctx.restore();
+  };
+
+  const handleCanvasClick = (e) => {
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    if (tool === 'text') {
+      setShowTextInput(true);
+      setDragStart({ x, y });
+    } else if (tool === 'bubble') {
+      setShowTextInput(true);
+      setDragStart({ x, y });
+    } else if (tool === 'select') {
+      // Sélectionner un élément
+      const clickedElement = elements.find(el => 
+        x >= el.x - 10 && x <= el.x + 100 && 
+        y >= el.y - 30 && y <= el.y + 10
+      );
+      setSelectedElement(clickedElement || null);
+      redrawElements();
     }
   };
 
-  if (isLoading) {
+  const handleMouseDown = (e) => {
+    if (tool === 'select' && selectedElement) {
+      setIsDragging(true);
+      const canvas = canvasRef.current;
+      const rect = canvas.getBoundingClientRect();
+      setDragStart({
+        x: e.clientX - rect.left - selectedElement.x,
+        y: e.clientY - rect.top - selectedElement.y
+      });
+    }
+  };
+
+  const handleMouseMove = (e) => {
+    if (isDragging && selectedElement) {
+      const canvas = canvasRef.current;
+      const rect = canvas.getBoundingClientRect();
+      const newX = e.clientX - rect.left - dragStart.x;
+      const newY = e.clientY - rect.top - dragStart.y;
+      
+      setElements(elements.map(el => 
+        el.id === selectedElement.id 
+          ? { ...el, x: newX, y: newY }
+          : el
+      ));
+      
+      setSelectedElement({ ...selectedElement, x: newX, y: newY });
+      redrawElements();
+    }
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  const addTextElement = () => {
+    if (!textInput.trim()) return;
+    
+    const newElement = {
+      id: Date.now(),
+      type: tool === 'bubble' ? 'bubble' : 'text',
+      text: textInput,
+      x: dragStart.x,
+      y: dragStart.y,
+      color: currentColor,
+      fontSize: fontSize,
+      backgroundColor: tool === 'bubble' ? '#ffffff' : undefined,
+      textColor: tool === 'bubble' ? '#000000' : undefined,
+      borderColor: tool === 'bubble' ? '#000000' : undefined
+    };
+    
+    setElements([...elements, newElement]);
+    setTextInput('');
+    setShowTextInput(false);
+    redrawElements();
+  };
+
+  const addSticker = (emoji) => {
+    const newElement = {
+      id: Date.now(),
+      type: 'sticker',
+      emoji: emoji,
+      x: canvasSize.width / 2,
+      y: canvasSize.height / 2,
+      size: 40
+    };
+    
+    setElements([...elements, newElement]);
+    redrawElements();
+  };
+
+  const deleteSelectedElement = () => {
+    if (selectedElement) {
+      setElements(elements.filter(el => el.id !== selectedElement.id));
+      setSelectedElement(null);
+      redrawElements();
+    }
+  };
+
+  // Historique (undo/redo)
+  const saveToHistory = useCallback(() => {
+    const newHistory = history.slice(0, historyIndex + 1);
+    newHistory.push(JSON.parse(JSON.stringify(elements)));
+    setHistory(newHistory);
+    setHistoryIndex(newHistory.length - 1);
+  }, [elements, history, historyIndex]);
+
+  const undo = () => {
+    if (historyIndex > 0) {
+      setHistoryIndex(historyIndex - 1);
+      setElements(history[historyIndex - 1]);
+      redrawElements();
+    }
+  };
+
+  const redo = () => {
+    if (historyIndex < history.length - 1) {
+      setHistoryIndex(historyIndex + 1);
+      setElements(history[historyIndex + 1]);
+      redrawElements();
+    }
+  };
+
+  // Gestion tactile
+  const handleTouchStart = (e) => {
+    e.preventDefault();
+    const touches = e.touches;
+    
+    if (touches.length === 1) {
+      const touch = touches[0];
+      const canvas = canvasRef.current;
+      const rect = canvas.getBoundingClientRect();
+      const x = touch.clientX - rect.left;
+      const y = touch.clientY - rect.top;
+      
+      setTouchStart({ x, y });
+      setIsMultiTouch(false);
+      
+      // Simuler un clic
+      handleCanvasClick({ clientX: touch.clientX, clientY: touch.clientY });
+    } else {
+      setIsMultiTouch(true);
+    }
+  };
+
+  const handleTouchMove = (e) => {
+    e.preventDefault();
+    if (e.touches.length === 1 && !isMultiTouch && selectedElement && touchStart) {
+      const touch = e.touches[0];
+      const canvas = canvasRef.current;
+      const rect = canvas.getBoundingClientRect();
+      const x = touch.clientX - rect.left;
+      const y = touch.clientY - rect.top;
+      
+      const deltaX = x - touchStart.x;
+      const deltaY = y - touchStart.y;
+      
+      setElements(elements.map(el => 
+        el.id === selectedElement.id 
+          ? { ...el, x: selectedElement.x + deltaX, y: selectedElement.y + deltaY }
+          : el
+      ));
+      
+      redrawElements();
+    }
+  };
+
+  const handleTouchEnd = (e) => {
+    e.preventDefault();
+    setTouchStart(null);
+    setIsMultiTouch(false);
+    if (elements !== history[historyIndex]) {
+      saveToHistory();
+    }
+  };
+
+  const saveImage = () => {
+    const canvas = canvasRef.current;
+    const dataURL = canvas.toDataURL('image/png');
+    
+    // Créer un lien de téléchargement
+    const link = document.createElement('a');
+    link.download = 'edited-image.png';
+    link.href = dataURL;
+    link.click();
+  };
+
+  const stickers = ['😀', '😍', '🔥', '💯', '✨', '❤️', '👍', '🎉', '🚀', '⭐', '💪', '🎯'];
+  const colors = ['#ffffff', '#000000', '#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff'];
+
+  if (!imageUrl) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-white">Chargement...</div>
@@ -175,222 +388,189 @@ function ImageEditor() {
   }
 
   return (
-    <div className="min-h-screen bg-black flex flex-col">
+    <div className="min-h-screen bg-black">
       {/* Header */}
-      <div className="bg-gradient-to-r from-purple-900 to-blue-900 p-3 sm:p-4 pt-10 sm:pt-12">
-        <div className="flex items-center justify-between">
+      <div className="bg-gray-900 p-4 flex items-center justify-between relative">
+        <button
+          onClick={() => navigate(-1)}
+          className="text-white hover:text-gray-300 flex items-center gap-2"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          {!isMobile && 'Retour'}
+        </button>
+        
+        <h1 className="text-white font-bold text-lg">
+          {isMobile ? '✏️' : '🎨 Éditeur d\'Image'}
+        </h1>
+        
+        <div className="flex items-center gap-2">
+          {/* Boutons d'historique */}
           <button
-            onClick={() => navigate('/temp-gallery')}
-            className="w-8 h-8 sm:w-10 sm:h-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-white/30 transition-all"
+            onClick={undo}
+            disabled={historyIndex <= 0}
+            className="p-2 text-white hover:text-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Annuler (Ctrl+Z)"
           >
-            <svg className="w-4 h-4 sm:w-5 sm:h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
             </svg>
           </button>
           
-          <h1 className="text-white font-bold text-sm sm:text-base">Éditeur</h1>
+          <button
+            onClick={redo}
+            disabled={historyIndex >= history.length - 1}
+            className="p-2 text-white hover:text-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Refaire (Ctrl+Y)"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 10h-10a8 8 0 00-8 8v2m18-10l-6-6m6 6l-6 6" />
+            </svg>
+          </button>
           
           <button
-            onClick={handleSave}
-            disabled={isSaving}
-            className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-full font-semibold text-xs sm:text-sm transition-all ${
-              isSaving 
-                ? 'bg-gray-500 text-white cursor-not-allowed'
-                : 'bg-green-500 hover:bg-green-600 text-white'
-            }`}
+            onClick={saveImage}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
           >
-            {isSaving ? 'Sauvegarde...' : '✓ Sauver'}
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+            </svg>
+            {!isMobile && 'Sauvegarder'}
           </button>
         </div>
       </div>
 
-      {/* Zone d'édition */}
-      <div className="flex-1 relative overflow-hidden">
-        <div className="w-full h-full flex items-center justify-center p-4">
-          <div className="relative max-w-full max-h-full">
-            <img
-              ref={canvasRef}
-              src={imageUrl}
-              alt="À éditer"
-              className="max-w-full max-h-full object-contain rounded-lg"
-              style={{
-                filter: `brightness(${filters.brightness}%) contrast(${filters.contrast}%) saturate(${filters.saturation}%) blur(${filters.blur}px)`
-              }}
+      <div className="flex flex-col lg:flex-row h-screen">
+        {/* Barre d'outils - Desktop */}
+        {!isMobile && (
+          <div className="bg-gray-800 lg:w-80 overflow-y-auto">
+            <ToolPanel 
+              tool={tool} 
+              setTool={setTool} 
+              selectedElement={selectedElement} 
+              onDeleteElement={deleteSelectedElement}
             />
-            
-            {/* Éléments de texte et stickers */}
-            {textElements.map((element) => (
-              <div
-                key={element.id}
-                style={{
-                  position: 'absolute',
-                  left: `${element.x}%`,
-                  top: `${element.y}%`,
-                  transform: 'translate(-50%, -50%)',
-                  color: element.color,
-                  fontSize: `${element.size}px`,
-                  cursor: 'move'
-                }}
-                className="group select-none"
-                onClick={() => setSelectedElement(element)}
-              >
-                {element.text}
-                
-                {selectedElement?.id === element.id && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDeleteElement(element.id);
-                    }}
-                    className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                )}
+            <div className="p-4">
+              <StickerPanel onAddSticker={addSticker} />
+              <ColorPanel 
+                currentColor={currentColor}
+                setCurrentColor={setCurrentColor}
+                fontSize={fontSize}
+                setFontSize={setFontSize}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Zone de canvas */}
+        <div className="flex-1 flex items-center justify-center p-4 overflow-auto relative">
+          <canvas
+            ref={canvasRef}
+            onClick={handleCanvasClick}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            className="border border-gray-600 max-w-full max-h-full shadow-2xl rounded-lg"
+            style={{ 
+              cursor: tool === 'select' ? 'default' : 'crosshair',
+              touchAction: 'none'
+            }}
+          />
+          
+          {/* Bouton outils mobile */}
+          {isMobile && (
+            <button
+              onClick={() => setShowMobileTools(!showMobileTools)}
+              className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center z-50"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4" />
+              </svg>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Panel d'outils mobile */}
+      {isMobile && showMobileTools && (
+        <div className="fixed inset-0 bg-black/80 z-40 flex items-end">
+          <div className="w-full bg-gray-800 rounded-t-2xl max-h-[70vh] overflow-y-auto">
+            <div className="p-4">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-white font-semibold text-lg">🛠️ Outils</h3>
+                <button
+                  onClick={() => setShowMobileTools(false)}
+                  className="text-white hover:text-gray-300"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
               </div>
-            ))}
+              
+              <ToolPanel 
+                tool={tool} 
+                setTool={setTool} 
+                selectedElement={selectedElement} 
+                onDeleteElement={deleteSelectedElement}
+              />
+              <StickerPanel onAddSticker={(sticker) => {
+                addSticker(sticker);
+                setShowMobileTools(false);
+              }} />
+              <ColorPanel 
+                currentColor={currentColor}
+                setCurrentColor={setCurrentColor}
+                fontSize={fontSize}
+                setFontSize={setFontSize}
+              />
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Barre d'outils */}
-      <div className="bg-black/95 backdrop-blur-xl border-t border-white/10">
-        {/* Onglets */}
-        <div className="flex justify-center border-b border-white/10">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 max-w-20 py-3 text-xs font-medium transition-all ${
-                activeTab === tab.id
-                  ? 'text-purple-400 border-b-2 border-purple-400'
-                  : 'text-white/60 hover:text-white/80'
-              }`}
-            >
-              <div className="flex flex-col items-center gap-1">
-                <span className="text-sm">{tab.icon}</span>
-                <span>{tab.name}</span>
-              </div>
-            </button>
-          ))}
-        </div>
-
-        {/* Contenu des onglets */}
-        <div className="p-4 max-h-48 overflow-y-auto">
-          {/* Onglet Texte */}
-          {activeTab === 'text' && (
-            <div className="space-y-4">
+      {/* Modal d'ajout de texte */}
+      {showTextInput && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              {tool === 'bubble' ? '💬 Ajouter une bulle' : '📝 Ajouter du texte'}
+            </h3>
+            <textarea
+              value={textInput}
+              onChange={(e) => setTextInput(e.target.value)}
+              placeholder="Tapez votre texte..."
+              className="w-full p-3 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+              rows="3"
+              autoFocus
+            />
+            <div className="flex gap-3 mt-4">
               <button
-                onClick={() => setShowTextInput(true)}
-                className="w-full bg-purple-500 hover:bg-purple-600 text-white py-3 rounded-xl font-semibold transition-all"
+                onClick={() => {
+                  addTextElement();
+                  if (isMobile) setShowMobileTools(false);
+                }}
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-lg font-semibold transition-colors"
               >
-                + Ajouter du texte
+                ✅ Ajouter
               </button>
-              
-              {showTextInput && (
-                <div className="space-y-3 bg-white/5 rounded-xl p-4">
-                  <input
-                    type="text"
-                    value={textInput}
-                    onChange={(e) => setTextInput(e.target.value)}
-                    placeholder="Ton texte..."
-                    className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white placeholder-white/50 text-sm"
-                  />
-                  
-                  <div className="flex gap-3">
-                    <input
-                      type="color"
-                      value={textColor}
-                      onChange={(e) => setTextColor(e.target.value)}
-                      className="w-12 h-8 rounded border border-white/20"
-                    />
-                    
-                    <input
-                      type="range"
-                      min="12"
-                      max="48"
-                      value={textSize}
-                      onChange={(e) => setTextSize(e.target.value)}
-                      className="flex-1"
-                    />
-                  </div>
-                  
-                  <div className="flex gap-2">
-                    <button
-                      onClick={handleAddText}
-                      disabled={!textInput.trim()}
-                      className="flex-1 bg-green-500 hover:bg-green-600 disabled:bg-gray-600 text-white py-2 rounded-lg text-sm"
-                    >
-                      Ajouter
-                    </button>
-                    <button
-                      onClick={() => setShowTextInput(false)}
-                      className="px-4 bg-gray-600 hover:bg-gray-700 text-white py-2 rounded-lg text-sm"
-                    >
-                      Annuler
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Onglet Filtres */}
-          {activeTab === 'filters' && (
-            <div className="space-y-4">
-              {Object.entries(filters).map(([key, value]) => (
-                <div key={key} className="space-y-2">
-                  <div className="flex justify-between text-white text-sm">
-                    <span className="capitalize">{key === 'blur' ? 'Flou' : key}</span>
-                    <span>{value}{key === 'blur' ? 'px' : '%'}</span>
-                  </div>
-                  <input
-                    type="range"
-                    min={key === 'blur' ? 0 : 0}
-                    max={key === 'blur' ? 10 : 200}
-                    value={value}
-                    onChange={(e) => setFilters({...filters, [key]: e.target.value})}
-                    className="w-full"
-                  />
-                </div>
-              ))}
-              
               <button
-                onClick={() => setFilters({ brightness: 100, contrast: 100, saturation: 100, blur: 0 })}
-                className="w-full bg-gray-600 hover:bg-gray-700 text-white py-2 rounded-lg text-sm"
+                onClick={() => {
+                  setShowTextInput(false);
+                  setTextInput('');
+                }}
+                className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-700 py-3 px-4 rounded-lg font-semibold transition-colors"
               >
-                Réinitialiser
+                ❌ Annuler
               </button>
             </div>
-          )}
-
-          {/* Onglet Stickers */}
-          {activeTab === 'stickers' && (
-            <div className="grid grid-cols-6 gap-3">
-              {stickers.map((sticker, index) => (
-                <button
-                  key={index}
-                  onClick={() => handleAddSticker(sticker)}
-                  className="aspect-square bg-white/10 hover:bg-white/20 rounded-lg flex items-center justify-center text-2xl transition-all hover:scale-110"
-                >
-                  {sticker}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Onglet Dessiner */}
-          {activeTab === 'draw' && (
-            <div className="text-center text-white/60 py-8">
-              <div className="text-4xl mb-2">🎨</div>
-              <p className="text-sm">Fonctionnalité de dessin</p>
-              <p className="text-xs text-white/40">Bientôt disponible</p>
-            </div>
-          )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

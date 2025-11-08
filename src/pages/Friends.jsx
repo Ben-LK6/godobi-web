@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import authService from '../services/authService';
 import friendService from '../services/friendService';
+import MobileNav from '../components/MobileNav';
 
 function Friends() {
   const [user, setUser] = useState(null);
@@ -153,76 +154,83 @@ function Friends() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 pb-12">
-      <div className="max-w-6xl mx-auto px-4 py-8">
+    <div className="min-h-screen bg-gray-50 pb-20 lg:pb-0">
+      <div className="max-w-3xl mx-auto px-3 py-4">
         {/* Header */}
-        <div className="bg-white rounded-xl shadow-md p-6 mb-6">
-          <h1 className="text-3xl font-bold text-gray-800 mb-4">Amis</h1>
+        <div className="bg-white rounded-lg shadow-sm p-3 mb-3">
+          <h1 className="text-lg font-semibold text-gray-900 mb-3">👥 Amis</h1>
           
           {/* Barre de recherche */}
           <form onSubmit={handleSearch} className="flex gap-2">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Rechercher des utilisateurs..."
-              className="flex-1 px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none"
-            />
+            <div className="flex-1 relative">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Rechercher..."
+                className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none transition-colors bg-gray-50 focus:bg-white"
+              />
+              <svg className="w-4 h-4 text-gray-400 absolute left-2.5 top-1/2 transform -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
             <button
               type="submit"
-              className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-lg font-semibold transition-colors"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
             >
-              🔍 Chercher
+              OK
             </button>
           </form>
         </div>
 
         {/* Tabs */}
-        <div className="bg-white rounded-xl shadow-md mb-6 overflow-hidden">
-          <div className="flex border-b">
+        <div className="bg-white rounded-xl shadow-sm mb-4 overflow-hidden">
+          <div className="flex">
             <button
               onClick={() => setActiveTab('friends')}
-              className={`flex-1 py-4 text-center font-semibold transition-colors relative ${
+              className={`flex-1 py-3 px-2 text-center font-medium transition-all text-sm ${
                 activeTab === 'friends'
-                  ? 'text-blue-600'
-                  : 'text-gray-600 hover:text-gray-800'
+                  ? 'text-blue-600 bg-blue-50'
+                  : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
               }`}
             >
-              👥 Mes amis ({friends.length})
-              {activeTab === 'friends' && (
-                <div className="absolute bottom-0 left-0 right-0 h-1 bg-blue-600"></div>
-              )}
+              <div className="flex flex-col items-center gap-1">
+                <span className="text-base">👥</span>
+                <span className="text-xs">Amis ({friends.length})</span>
+              </div>
             </button>
             <button
               onClick={() => setActiveTab('requests')}
-              className={`flex-1 py-4 text-center font-semibold transition-colors relative ${
+              className={`flex-1 py-3 px-2 text-center font-medium transition-all text-sm relative ${
                 activeTab === 'requests'
-                  ? 'text-blue-600'
-                  : 'text-gray-600 hover:text-gray-800'
+                  ? 'text-blue-600 bg-blue-50'
+                  : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
               }`}
             >
-              📥 Demandes reçues ({pendingRequests.length})
-              {pendingRequests.length > 0 && (
-                <span className="absolute top-2 right-4 bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
-                  {pendingRequests.length}
-                </span>
-              )}
-              {activeTab === 'requests' && (
-                <div className="absolute bottom-0 left-0 right-0 h-1 bg-blue-600"></div>
-              )}
+              <div className="flex flex-col items-center gap-1">
+                <div className="relative">
+                  <span className="text-base">📥</span>
+                  {pendingRequests.length > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold w-4 h-4 rounded-full flex items-center justify-center">
+                      {pendingRequests.length > 9 ? '9+' : pendingRequests.length}
+                    </span>
+                  )}
+                </div>
+                <span className="text-xs">Reçues ({pendingRequests.length})</span>
+              </div>
             </button>
             <button
               onClick={() => setActiveTab('sent')}
-              className={`flex-1 py-4 text-center font-semibold transition-colors relative ${
+              className={`flex-1 py-3 px-2 text-center font-medium transition-all text-sm ${
                 activeTab === 'sent'
-                  ? 'text-blue-600'
-                  : 'text-gray-600 hover:text-gray-800'
+                  ? 'text-blue-600 bg-blue-50'
+                  : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
               }`}
             >
-              📤 Demandes envoyées ({sentRequests.length})
-              {activeTab === 'sent' && (
-                <div className="absolute bottom-0 left-0 right-0 h-1 bg-blue-600"></div>
-              )}
+              <div className="flex flex-col items-center gap-1">
+                <span className="text-base">📤</span>
+                <span className="text-xs">Envoyées ({sentRequests.length})</span>
+              </div>
             </button>
           </div>
         </div>
@@ -230,57 +238,54 @@ function Friends() {
         {/* Contenu */}
         <div>
           {loading ? (
-            <div className="bg-white rounded-xl shadow-md p-12 text-center">
-              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-              <p className="mt-4 text-gray-600">Chargement...</p>
+            <div className="bg-white rounded-xl shadow-sm p-6 text-center">
+              <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+              <p className="mt-2 text-gray-600 text-sm">Chargement...</p>
             </div>
           ) : (
             <>
               {/* Mes amis */}
               {activeTab === 'friends' && (
                 friends.length === 0 ? (
-                  <div className="bg-white rounded-xl shadow-md p-12 text-center">
-                    <div className="text-6xl mb-4">👥</div>
-                    <h3 className="text-xl font-bold text-gray-700 mb-2">
+                  <div className="bg-white rounded-xl shadow-sm p-6 text-center">
+                    <div className="text-3xl mb-2">👥</div>
+                    <h3 className="text-base font-semibold text-gray-800 mb-1">
                       Aucun ami pour le moment
                     </h3>
-                    <p className="text-gray-500 mb-6">
+                    <p className="text-gray-500 text-sm mb-3">
                       Commence par rechercher des utilisateurs !
                     </p>
                     <button
                       onClick={() => setActiveTab('search')}
-                      className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold"
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg font-medium text-sm transition-colors"
                     >
-                      Chercher des amis
+                      Chercher
                     </button>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <div className="space-y-2">
                     {friends.map((friend) => (
-                      <div key={friend.id} className="bg-white rounded-xl shadow-md hover:shadow-xl transition-all overflow-hidden">
-                        <div className="p-6">
-                          <div className="flex items-center gap-4 mb-4">
-                            <Link to={`/user/${friend.id}`}>
-                              <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-xl cursor-pointer hover:scale-110 transition-transform">
-                                {friend.username.charAt(0).toUpperCase()}
-                              </div>
-                            </Link>
-                            <Link to={`/user/${friend.id}`} className="flex-1 hover:text-blue-600 transition-colors">
-                              <h3 className="font-bold text-gray-800 text-lg">{friend.username}</h3>
-                              <p className="text-sm text-gray-500 truncate">{friend.email}</p>
-                            </Link>
-                          </div>
-                          
-                          <div className="flex gap-2">
+                      <div key={friend.id} className="bg-white rounded-xl shadow-sm hover:shadow-md transition-all p-3">
+                        <div className="flex items-center gap-3">
+                          <Link to={`/user/${friend.id}`}>
+                            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-sm cursor-pointer hover:scale-105 transition-transform">
+                              {friend.username.charAt(0).toUpperCase()}
+                            </div>
+                          </Link>
+                          <Link to={`/user/${friend.id}`} className="flex-1 hover:text-blue-600 transition-colors">
+                            <h3 className="font-medium text-gray-900 text-sm">{friend.username}</h3>
+                            <p className="text-xs text-gray-500 truncate">{friend.email}</p>
+                          </Link>
+                          <div className="flex gap-1.5">
                             <Link
                               to={`/messages?contact=${friend.id}`}
-                              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors text-center"
+                              className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs transition-colors"
                             >
-                              💬 Message
+                              💬
                             </Link>
                             <button
                               onClick={() => handleRemove(friend.id, friend.username)}
-                              className="px-4 py-2 bg-red-100 hover:bg-red-200 text-red-600 rounded-lg font-semibold transition-colors"
+                              className="bg-red-100 hover:bg-red-200 text-red-600 px-2.5 py-1.5 rounded-lg text-xs transition-colors"
                             >
                               🗑️
                             </button>
@@ -295,42 +300,39 @@ function Friends() {
               {/* Demandes reçues */}
               {activeTab === 'requests' && (
                 pendingRequests.length === 0 ? (
-                  <div className="bg-white rounded-xl shadow-md p-12 text-center">
-                    <div className="text-6xl mb-4">📥</div>
-                    <h3 className="text-xl font-bold text-gray-700 mb-2">
+                  <div className="bg-white rounded-xl shadow-sm p-6 text-center">
+                    <div className="text-3xl mb-2">📥</div>
+                    <h3 className="text-base font-semibold text-gray-800 mb-1">
                       Aucune demande reçue
                     </h3>
-                    <p className="text-gray-500">
-                      Les nouvelles demandes d'amitié apparaîtront ici
+                    <p className="text-gray-500 text-sm">
+                      Les nouvelles demandes apparaîtront ici
                     </p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <div className="space-y-2">
                     {pendingRequests.map((request) => (
-                      <div key={request.id} className="bg-white rounded-xl shadow-md hover:shadow-xl transition-all overflow-hidden border-2 border-blue-200">
-                        <div className="p-6">
-                          <div className="flex items-center gap-4 mb-4">
-                            <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-xl">
-                              {request.username.charAt(0).toUpperCase()}
-                            </div>
-                            <div className="flex-1">
-                              <h3 className="font-bold text-gray-800 text-lg">{request.username}</h3>
-                              <p className="text-sm text-gray-500 truncate">{request.email}</p>
-                            </div>
+                      <div key={request.id} className="bg-white rounded-xl shadow-sm hover:shadow-md transition-all p-3 border-l-3 border-blue-500">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                            {request.username.charAt(0).toUpperCase()}
                           </div>
-                          
-                          <div className="flex gap-2">
+                          <div className="flex-1">
+                            <h3 className="font-medium text-gray-900 text-sm">{request.username}</h3>
+                            <p className="text-xs text-gray-500 truncate">{request.email}</p>
+                          </div>
+                          <div className="flex gap-1.5">
                             <button
                               onClick={() => handleAccept(request.id)}
-                              className="flex-1 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-semibold transition-colors"
+                              className="bg-green-500 hover:bg-green-600 text-white px-3 py-1.5 rounded-lg text-xs transition-colors"
                             >
-                              ✓ Accepter
+                              ✓
                             </button>
                             <button
                               onClick={() => handleReject(request.id)}
-                              className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded-lg font-semibold transition-colors"
+                              className="bg-gray-300 hover:bg-gray-400 text-gray-800 px-3 py-1.5 rounded-lg text-xs transition-colors"
                             >
-                              ✕ Refuser
+                              ✕
                             </button>
                           </div>
                         </div>
@@ -343,35 +345,35 @@ function Friends() {
               {/* Demandes envoyées */}
               {activeTab === 'sent' && (
                 sentRequests.length === 0 ? (
-                  <div className="bg-white rounded-xl shadow-md p-12 text-center">
-                    <div className="text-6xl mb-4">📤</div>
-                    <h3 className="text-xl font-bold text-gray-700 mb-2">
+                  <div className="bg-white rounded-xl shadow-sm p-6 text-center">
+                    <div className="text-3xl mb-2">📤</div>
+                    <h3 className="text-base font-semibold text-gray-800 mb-1">
                       Aucune demande envoyée
                     </h3>
-                    <p className="text-gray-500">
-                      Les demandes que tu envoies apparaîtront ici
+                    <p className="text-gray-500 text-sm">
+                      Tes demandes apparaîtront ici
                     </p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <div className="space-y-2">
                     {sentRequests.map((request) => (
-                      <div key={request.id} className="bg-white rounded-xl shadow-md hover:shadow-xl transition-all overflow-hidden">
-                        <div className="p-6">
-                          <div className="flex items-center gap-4 mb-4">
-                            <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-xl">
-                              {request.username.charAt(0).toUpperCase()}
-                            </div>
-                            <div className="flex-1">
-                              <h3 className="font-bold text-gray-800 text-lg">{request.username}</h3>
-                              <p className="text-sm text-yellow-600 font-semibold">⏳ En attente</p>
-                            </div>
+                      <div key={request.id} className="bg-white rounded-xl shadow-sm hover:shadow-md transition-all p-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                            {request.username.charAt(0).toUpperCase()}
                           </div>
-                          
+                          <div className="flex-1">
+                            <h3 className="font-medium text-gray-900 text-sm">{request.username}</h3>
+                            <p className="text-xs text-yellow-600 font-medium flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 bg-yellow-500 rounded-full animate-pulse"></span>
+                              En attente
+                            </p>
+                          </div>
                           <button
                             onClick={() => handleCancelRequest(request.id)}
-                            className="w-full bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded-lg font-semibold transition-colors"
+                            className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 py-1.5 rounded-lg text-xs transition-colors"
                           >
-                            Annuler la demande
+                            Annuler
                           </button>
                         </div>
                       </div>
@@ -383,35 +385,32 @@ function Friends() {
               {/* Résultats de recherche */}
               {activeTab === 'search' && (
                 searchResults.length === 0 ? (
-                  <div className="bg-white rounded-xl shadow-md p-12 text-center">
-                    <div className="text-6xl mb-4">🔍</div>
-                    <h3 className="text-xl font-bold text-gray-700 mb-2">
+                  <div className="bg-white rounded-xl shadow-sm p-6 text-center">
+                    <div className="text-3xl mb-2">🔍</div>
+                    <h3 className="text-base font-semibold text-gray-800 mb-1">
                       Aucun résultat
                     </h3>
-                    <p className="text-gray-500">
-                      Essaie un autre nom d'utilisateur
+                    <p className="text-gray-500 text-sm">
+                      Essaie un autre nom
                     </p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <div className="space-y-2">
                     {searchResults.map((result) => (
-                      <div key={result.id} className="bg-white rounded-xl shadow-md hover:shadow-xl transition-all overflow-hidden">
-                        <div className="p-6">
-                          <div className="flex items-center gap-4 mb-4">
-                            <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-xl">
-                              {result.username.charAt(0).toUpperCase()}
-                            </div>
-                            <div className="flex-1">
-                              <h3 className="font-bold text-gray-800 text-lg">{result.username}</h3>
-                              <p className="text-sm text-gray-500 truncate">{result.email}</p>
-                            </div>
+                      <div key={result.id} className="bg-white rounded-xl shadow-sm hover:shadow-md transition-all p-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                            {result.username.charAt(0).toUpperCase()}
                           </div>
-                          
+                          <div className="flex-1">
+                            <h3 className="font-medium text-gray-900 text-sm">{result.username}</h3>
+                            <p className="text-xs text-gray-500 truncate">{result.email}</p>
+                          </div>
                           <button
                             onClick={() => handleSendRequest(result.id)}
-                            className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors"
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs transition-colors"
                           >
-                            ➕ Ajouter en ami
+                            ➕
                           </button>
                         </div>
                       </div>
@@ -423,6 +422,8 @@ function Friends() {
           )}
         </div>
       </div>
+      
+      <MobileNav />
     </div>
   );
 }
